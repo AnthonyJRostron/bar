@@ -36,10 +36,6 @@
     border-color: #6ee7a8;
     box-shadow: 0 0 0 9999px rgba(0,0,0,0.45), 0 0 22px rgba(110,231,168,0.75);
   }
-  #rect.near {
-    border-color: #fbbf24;
-    box-shadow: 0 0 0 9999px rgba(0,0,0,0.45), 0 0 16px rgba(251,191,36,0.55);
-  }
 
   #topbar {
     position: absolute; top: 0; left: 0; right: 0;
@@ -130,12 +126,15 @@
     color: #fff; background: #1f6feb; border: 0; border-radius: 12px; cursor: pointer;
   }
   #bar button:disabled { background: #232326; color: #6b6b70; cursor: default; }
+  #torch { flex: 0 0 auto; min-width: 64px; background: #232326; }
+  #torch.on { background: #fbbf24; color: #1a1a1a; }
+  #torch[hidden] { display: none; }
 </style>
 </head>
 <body>
 
   <div id="stage">
-    <video id="video" playsinline muted autoplay></video>
+    <video id="video" playsinline webkit-playsinline muted autoplay></video>
     <div id="overlay"><div id="rect"></div></div>
 
     <div id="topbar">
@@ -161,6 +160,7 @@
   <div id="bar">
     <button id="start">Start</button>
     <button id="stop" disabled>Stop</button>
+    <button id="torch" hidden>Torch</button>
   </div>
 
 <script>
@@ -181,6 +181,7 @@
   const logEl     = document.getElementById('log');
   const startBtn  = document.getElementById('start');
   const stopBtn   = document.getElementById('stop');
+  const torchBtn  = document.getElementById('torch');
   const modeBtns  = document.querySelectorAll('#modeToggle button');
 
   // ------------------------------------------------------------- constants
@@ -191,9 +192,14 @@
   };
   const ALL_FORMATS = [...MODE_FORMATS.qr, ...MODE_FORMATS.barcode];
 
-  // Detection runs on a downscaled canvas so it is fast regardless of the
-  // webcam's native resolution.  960 px is plenty for both 1D and 2D codes.
-  const DETECT_MAX_WIDTH = 960;
+  // We no longer decode the whole (downscaled) frame. Instead we crop out
+  // just the viewfinder region at (near-)native resolution — this is what
+  // actually fixes "code is in the box but isn't detected": the barcode
+  // stops being a small blurry patch of a shrunk frame and becomes the
+  // dominant subject of a full-resolution image. CROP_MAX_DIM only bounds
+  // cost on very high-res cameras; it rarely kicks in in practice.
+  const CROP_MAX_DIM  = 1400;
+  const CROP_PADDING  = 0.08; // extra margin around the viewfinder box
 
   const OFF_BASE = 'https://world.openfoodfacts.org/api/v2/product/';
   const CORS_PROXIES = [
@@ -243,33 +249,49 @@
     '955':'Malaysia','958':'Macau'
   };
 
-  const DETECT_INTERVAL      = 90;
+  const DETECT_INTERVAL      = 100;
   const DEDUPE_MS            = 1500;
-  const REGION_MIN_OVERLAP   = 0.20;
   const LOG_MAX              = 5;
   const DETECT_LOG_THROTTLE  = 500;
 
-  // ---------------------------------------------------------------- state
-  let currentMode    = 'barcode';
-  let running        = false;
-  let rafId          = 0;
-  let busy           = false;
-  let lastTick       = 0;
-  let stream         = null;
-  let zxingReader    = null;
-  let lastText       = '';
-  let lastAt         = 0;
-  let lastLookupCode = '';
-  let lookupId       = 0;
-  let flashTimer     = 0;
-  let lastDetectLog  = 0;
-  let engine         = 'none';
+  // Cardinal rotations we try. 0deg is attempted every tick (the common
+  // case stays fast); one more angle is round-robined in each tick so a
+  // sideways or upside-down code is caught within a few ticks (well under
+  // half a second) without paying for all three extra angles every time.
+  const EXTRA_ROTATIONS = [90, 180, 270];
 
-  // detection canvas (created once)
-  const detectCanvas = document.createElement('canvas');
-  detectCanvas.style.display = 'none';
-  document.body.appendChild(detectCanvas);
-  let detectCtx = detectCanvas.getContext('2d', { willReadFrequently: true });
+  // ---------------------------------------------------------------- state
+  let currentMode     = 'barcode';
+  let running         = false;
+  let rafId           = 0;
+  let rvfcHandle      = 0;
+  let busy            = false;
+  let lastTick        = 0;
+  let stream          = null;
+  let nativeDetector  = null;
+  let zxingReader     = null;
+  let zxingCanvasOK   = false;
+  let ZXingLib        = null;
+  let torchTrack      = null;
+  let torchOn         = false;
+  let rotCursor       = 0;
+  let lastText        = '';
+  let lastAt          = 0;
+  let lastLookupCode  = '';
+  let lookupId        = 0;
+  let flashTimer      = 0;
+  let lastDetectLog   = 0;
+
+  // canvases used for the crop + rotation pipeline (created once)
+  const cropCanvas = document.createElement('canvas');
+  cropCanvas.style.display = 'none';
+  document.body.appendChild(cropCanvas);
+  const cropCtx = cropCanvas.getContext('2d', { willReadFrequently: true });
+
+  const rotCanvas = document.createElement('canvas');
+  rotCanvas.style.display = 'none';
+  document.body.appendChild(rotCanvas);
+  const rotCtx = rotCanvas.getContext('2d', { willReadFrequently: true });
 
   // ---------------------------------------------------------------- log
   const logLines = [];
@@ -427,9 +449,14 @@
   }
 
   // --------------------------------------------------- viewfinder region
+  // These fractions define BOTH what's drawn on screen and what gets
+  // cropped for decoding, so "in the box" and "what the decoder sees"
+  // are now the same thing. The barcode band is deliberately generous
+  // (not a tight rectangle) so a tilted or upside-down code anywhere in
+  // it still gets picked up.
   function getRegion(mode, vw, vh) {
     if (mode === 'qr') {
-      const side = Math.min(vw, vh) * 0.72;
+      const side = Math.min(vw, vh) * 0.78;
       return {
         x: (vw - side) / 2 / vw,
         y: (vh - side) / 2 / vh,
@@ -437,8 +464,7 @@
         h: side / vh
       };
     }
-    // Wider band than before — PC webcams have a wider FOV, so give more room
-    return { x: 0.02, y: 0.25, w: 0.96, h: 0.50 };
+    return { x: 0.06, y: 0.18, w: 0.88, h: 0.64 };
   }
 
   function updateOverlay() {
@@ -460,59 +486,12 @@
     rectEl.classList.add('on');
   }
 
-  // Very permissive: the user is aiming at the box; accept anything that
-  // plausibly intersects it.  Works on PC where the code often clips an edge.
-  function checkRegion(bbox, w, h) {
-    if (!bbox || !w || !h) return { pass: false, reason: 'no bbox/size' };
-
-    const r = getRegion(currentMode, w, h);
-    const rx1 = r.x * w,  ry1 = r.y * h;
-    const rx2 = rx1 + r.w * w, ry2 = ry1 + r.h * h;
-
-    const bx1 = bbox.x, by1 = bbox.y;
-    const bx2 = bbox.x + bbox.width, by2 = bbox.y + bbox.height;
-
-    const cx = (bx1 + bx2) / 2, cy = (by1 + by2) / 2;
-    const centerInside  = cx >= rx1 && cx <= rx2 && cy >= ry1 && cy <= ry2;
-
-    const anyCorner =
-      (bx1 >= rx1 && bx1 <= rx2 && by1 >= ry1 && by1 <= ry2) ||
-      (bx2 >= rx1 && bx2 <= rx2 && by1 >= ry1 && by1 <= ry2) ||
-      (bx1 >= rx1 && bx1 <= rx2 && by2 >= ry1 && by2 <= ry2) ||
-      (bx2 >= rx1 && bx2 <= rx2 && by2 >= ry1 && by2 <= ry2);
-
-    const rCx = (rx1 + rx2) / 2, rCy = (ry1 + ry2) / 2;
-    const regionCenterInside = rCx >= bx1 && rCx <= bx2 && rCy >= by1 && rCy <= by2;
-
-    const ox = Math.max(0, Math.min(rx2, bx2) - Math.max(rx1, bx1));
-    const oy = Math.max(0, Math.min(ry2, by2) - Math.max(ry1, by1));
-    const bboxArea   = Math.max(1, bbox.width * bbox.height);
-    const regionArea = Math.max(1, (rx2 - rx1) * (ry2 - ry1));
-    const overlapBbox   = (ox * oy) / bboxArea;
-    const overlapRegion = (ox * oy) / regionArea;
-
-    const pass = centerInside || anyCorner || regionCenterInside ||
-                 overlapBbox >= REGION_MIN_OVERLAP ||
-                 overlapRegion >= REGION_MIN_OVERLAP;
-
-    let reason;
-    if (centerInside) reason = 'center inside';
-    else if (anyCorner) reason = 'corner inside';
-    else if (regionCenterInside) reason = 'region centre inside';
-    else if (overlapBbox >= REGION_MIN_OVERLAP) reason = 'bbox overlap ' + overlapBbox.toFixed(2);
-    else if (overlapRegion >= REGION_MIN_OVERLAP) reason = 'region overlap ' + overlapRegion.toFixed(2);
-    else reason = 'outside (bbox ' + overlapBbox.toFixed(2) + ', region ' + overlapRegion.toFixed(2) + ')';
-
-    return { pass, reason };
-  }
-
   function flashRect(kind) {
-    rectEl.classList.remove('hit', 'near');
+    rectEl.classList.remove('hit');
     void rectEl.offsetWidth;
     rectEl.classList.add(kind);
     clearTimeout(flashTimer);
-    flashTimer = setTimeout(() => rectEl.classList.remove('hit', 'near'),
-                            kind === 'hit' ? 450 : 250);
+    flashTimer = setTimeout(() => rectEl.classList.remove('hit'), 450);
   }
 
   function formatMatchesMode(format, mode) {
@@ -566,17 +545,22 @@
   }
 
   // ------------------------------------------------ camera acquisition
-  // Try progressively more permissive constraint sets.  This is the key
-  // fix for PCs: many webcams reject the 1280x720-with-environment request.
+  // Try progressively more permissive constraint sets. Resolution is
+  // pushed higher than before (1920x1080 ideal) because we now crop a
+  // small region out of the frame for decoding instead of shrinking the
+  // whole frame — more native pixels means more pixels on the barcode.
   async function acquireCamera() {
     const attempts = [
+      { name: '1920x1080 env',
+        v: { facingMode: { ideal: 'environment' },
+             width:  { ideal: 1920 }, height: { ideal: 1080 },
+             frameRate: { ideal: 30, max: 30 } } },
       { name: '1280x720 env',
         v: { facingMode: { ideal: 'environment' },
              width:  { ideal: 1280 }, height: { ideal: 720 },
              frameRate: { ideal: 30, max: 30 } } },
       { name: '1280x720 any',
-        v: { width:  { ideal: 1280 }, height: { ideal: 720 },
-             frameRate: { ideal: 30, max: 30 } } },
+        v: { width:  { ideal: 1280 }, height: { ideal: 720 } } },
       { name: '640x480 any',
         v: { width: { ideal: 640 }, height: { ideal: 480 } } },
       { name: 'default', v: true }
@@ -599,152 +583,176 @@
     throw lastErr || new Error('No camera available');
   }
 
-  // -------------------------------------------- engine 1: BarcodeDetector
-  async function startNative() {
-    let formats = ALL_FORMATS;
-    if (typeof BarcodeDetector.getSupportedFormats === 'function') {
-      const supported = await BarcodeDetector.getSupportedFormats();
-      const filtered  = ALL_FORMATS.filter(f => supported.indexOf(f) !== -1);
-      if (filtered.length) formats = filtered;
-      log('Native formats: ' + formats.length + ' supported');
-    }
-
-    const detector = new BarcodeDetector({ formats });
-    log('Native detector created');
-
-    stream = await acquireCamera();
-    video.srcObject = stream;
-    await video.play();
-    await waitForVideoSize();
-    log('Video ' + video.videoWidth + '×' + video.videoHeight +
-        ' → detect @ ' + Math.min(video.videoWidth, DETECT_MAX_WIDTH) + 'px');
-
-    const loop = async () => {
-      if (!running) return;
-
-      const now = performance.now();
-      if (!busy && now - lastTick >= DETECT_INTERVAL) {
-        lastTick = now; busy = true;
-        try {
-          const vw = video.videoWidth, vh = video.videoHeight;
-          if (vw && vh) {
-            // Downscale for detection — this is the PC fix.
-            const scale = Math.min(1, DETECT_MAX_WIDTH / vw);
-            const cw = Math.max(1, Math.round(vw * scale));
-            const ch = Math.max(1, Math.round(vh * scale));
-
-            if (detectCanvas.width !== cw || detectCanvas.height !== ch) {
-              detectCanvas.width  = cw;
-              detectCanvas.height = ch;
-            }
-
-            detectCtx.drawImage(video, 0, 0, cw, ch);
-            const codes = await detector.detect(detectCanvas);
-            // bbox coords are now in canvas space; canvas preserves the
-            // video aspect ratio, so normalised coordinates are identical.
-            handleNativeResults(codes, cw, ch);
-          }
-        } catch (e) {
-          logThrottled('Detect error: ' + (e.message || e), 'err');
-        }
-        busy = false;
+  // Best-effort continuous autofocus. Unsupported on iOS Safari (WebKit
+  // doesn't expose focusMode) — this simply does nothing there.
+  async function tryEnableContinuousFocus() {
+    const track = stream && stream.getVideoTracks()[0];
+    if (!track || typeof track.getCapabilities !== 'function') return;
+    let caps = {};
+    try { caps = track.getCapabilities(); } catch (_) {}
+    if (caps.focusMode && caps.focusMode.indexOf('continuous') !== -1) {
+      try {
+        await track.applyConstraints({ advanced: [{ focusMode: 'continuous' }] });
+        log('Continuous autofocus requested', 'ok');
+      } catch (e) {
+        log('Focus constraint failed: ' + (e.message || e), 'warn');
       }
-      rafId = requestAnimationFrame(loop);
-    };
-    loop();
+    }
   }
 
-  function handleNativeResults(codes, cw, ch) {
-    if (!codes || !codes.length) return;
+  // Torch is not supported on iOS Safari — the button stays hidden there
+  // (feature-detected, no UA sniffing) rather than showing a dead control.
+  function setupTorch() {
+    torchTrack = null;
+    torchOn = false;
+    torchBtn.hidden = true;
+    torchBtn.classList.remove('on');
+    const track = stream && stream.getVideoTracks()[0];
+    if (!track || typeof track.getCapabilities !== 'function') return;
+    let caps = {};
+    try { caps = track.getCapabilities(); } catch (_) {}
+    if (caps.torch) {
+      torchTrack = track;
+      torchBtn.hidden = false;
+    }
+  }
 
-    let hit = null, outsideReason = '';
+  async function toggleTorch() {
+    if (!torchTrack) return;
+    const next = !torchOn;
+    try {
+      await torchTrack.applyConstraints({ advanced: [{ torch: next }] });
+      torchOn = next;
+      torchBtn.classList.toggle('on', torchOn);
+    } catch (e) {
+      log('Torch toggle failed: ' + (e.message || e), 'warn');
+    }
+  }
 
+  // ------------------------------------------------- crop + rotation
+  function getCropRectPx(mode, vw, vh) {
+    const r = getRegion(mode, vw, vh);
+    let x = r.x * vw, y = r.y * vh, w = r.w * vw, h = r.h * vh;
+    const padX = w * CROP_PADDING, padY = h * CROP_PADDING;
+    x = Math.max(0, x - padX);
+    y = Math.max(0, y - padY);
+    w = Math.min(vw - x, w + 2 * padX);
+    h = Math.min(vh - y, h + 2 * padY);
+    return { x, y, w, h };
+  }
+
+  function makeCropCanvas() {
+    const vw = video.videoWidth, vh = video.videoHeight;
+    if (!vw || !vh) return null;
+    const rect = getCropRectPx(currentMode, vw, vh);
+    let scale = 1;
+    const maxDim = Math.max(rect.w, rect.h);
+    if (maxDim > CROP_MAX_DIM) scale = CROP_MAX_DIM / maxDim;
+    const cw = Math.max(1, Math.round(rect.w * scale));
+    const ch = Math.max(1, Math.round(rect.h * scale));
+    if (cropCanvas.width !== cw || cropCanvas.height !== ch) {
+      cropCanvas.width = cw;
+      cropCanvas.height = ch;
+    }
+    cropCtx.drawImage(video, rect.x, rect.y, rect.w, rect.h, 0, 0, cw, ch);
+    return cropCanvas;
+  }
+
+  function rotatedCanvas(src, deg) {
+    const swap = deg === 90 || deg === 270;
+    const w = swap ? src.height : src.width;
+    const h = swap ? src.width : src.height;
+    if (rotCanvas.width !== w || rotCanvas.height !== h) {
+      rotCanvas.width = w;
+      rotCanvas.height = h;
+    }
+    rotCtx.save();
+    rotCtx.clearRect(0, 0, w, h);
+    rotCtx.translate(w / 2, h / 2);
+    rotCtx.rotate(deg * Math.PI / 180);
+    rotCtx.drawImage(src, -src.width / 2, -src.height / 2);
+    rotCtx.restore();
+    return rotCanvas;
+  }
+
+  // ------------------------------------------------------- decoding
+  function pickNativeMatch(codes) {
+    if (!codes) return null;
     for (const c of codes) {
       if (!c || !c.rawValue) continue;
-      const fmt = c.format;
-      if (!formatMatchesMode(fmt, currentMode)) {
-        logThrottled('Detected ' + fmt + ' (filtered by mode)', 'warn');
-        continue;
+      if (formatMatchesMode(c.format, currentMode)) return c;
+      logThrottled('Detected ' + c.format + ' (filtered by mode)', 'warn');
+    }
+    return null;
+  }
+
+  // Tries native BarcodeDetector first (fast, and on Android the more
+  // rotation-tolerant of the two engines), then ZXing on the same canvas
+  // as a backstop — and the only engine at all on iOS, where
+  // BarcodeDetector doesn't exist.
+  async function tryDecode(canvas) {
+    if (nativeDetector) {
+      try {
+        const codes = await nativeDetector.detect(canvas);
+        const hit = pickNativeMatch(codes);
+        if (hit) { flashRect('hit'); show(hit.rawValue); return true; }
+      } catch (e) {
+        logThrottled('Native detect error: ' + (e.message || e), 'err');
       }
-      const check = checkRegion(c.boundingBox, cw, ch);
-      if (check.pass) { hit = c; break; }
-      outsideReason = check.reason;
     }
+    if (zxingReader && zxingCanvasOK) {
+      try {
+        const result = zxingReader.decodeFromCanvas(canvas);
+        if (result) {
+          const fmtName = ZXingLib.BarcodeFormat[result.getBarcodeFormat()] || '';
+          if (formatMatchesMode(fmtName, currentMode)) {
+            flashRect('hit'); show(result.getText()); return true;
+          }
+          logThrottled('ZXing: ' + fmtName + ' filtered by mode', 'warn');
+        }
+      } catch (e) {
+        // NotFoundException / ChecksumException / FormatException:
+        // nothing decoded on this attempt — expected most of the time.
+      }
+    }
+    return false;
+  }
 
-    if (hit) { flashRect('hit'); show(hit.rawValue); }
-    else if (outsideReason) {
-      flashRect('near');
-      logThrottled('Detected outside box: ' + outsideReason, 'warn');
+  async function detectTick() {
+    const base = makeCropCanvas();
+    if (!base) return;
+
+    // Upright first — the common case, kept fast (one draw, no rotation).
+    if (await tryDecode(base)) return;
+
+    // Round-robin one more orientation per tick so a sideways or
+    // upside-down code is caught within a few ticks, without the cost of
+    // trying all three extra angles on every single tick.
+    const angle = EXTRA_ROTATIONS[rotCursor % EXTRA_ROTATIONS.length];
+    rotCursor++;
+    const rotated = rotatedCanvas(base, angle);
+    await tryDecode(rotated);
+  }
+
+  function scheduleTick(cb) {
+    if (video.requestVideoFrameCallback) {
+      rvfcHandle = video.requestVideoFrameCallback(() => cb());
+    } else {
+      rafId = requestAnimationFrame(cb);
     }
   }
 
-  // ------------------------------------------------ engine 2: ZXing fallback
-  async function startZXing() {
-    const ZX = await loadZXing();
+  function runLoop() {
     if (!running) return;
-
-    const hints = new Map();
-    hints.set(ZX.DecodeHintType.TRY_HARDER, true);
-    const formats = [];
-    for (const name of ALL_FORMATS) {
-      const key = name.toUpperCase().replace(/-/g, '_');
-      if (ZX.BarcodeFormat[key] !== undefined) formats.push(ZX.BarcodeFormat[key]);
+    const now = performance.now();
+    if (!busy && now - lastTick >= DETECT_INTERVAL) {
+      lastTick = now;
+      busy = true;
+      detectTick()
+        .catch(e => logThrottled('Detect error: ' + (e.message || e), 'err'))
+        .finally(() => { busy = false; });
     }
-    hints.set(ZX.DecodeHintType.POSSIBLE_FORMATS, formats);
-    log('ZXing formats: ' + formats.length);
-
-    // ZXing reads the video element directly; capping the camera resolution
-    // via acquireCamera() is what keeps it fast on PC.
-    zxingReader = new ZX.BrowserMultiFormatReader(hints, 150);
-
-    stream = await acquireCamera();
-    video.srcObject = stream;
-    await video.play();
-
-    // Some browsers only allow play() after a user gesture; start already
-    // came from a tap so we're fine.
-    try {
-      await zxingReader.decodeFromVideoElement(video, (result) => {
-        if (!running || !result) return;
-        handleZXingResult(result, ZX);
-      });
-    } catch (e) {
-      // ZXing's decodeFromVideoElement throws when reset() is called; ignore
-      if (running) throw e;
-    }
-
-    log('ZXing reader started');
-    await waitForVideoSize();
-  }
-
-  function handleZXingResult(result, ZX) {
-    const fmtRaw = result.getBarcodeFormat();
-    const fmtName = ZX.BarcodeFormat[fmtRaw] || String(fmtRaw);
-    if (!formatMatchesMode(fmtName, currentMode)) {
-      logThrottled('ZXing: ' + fmtName + ' filtered by mode', 'warn');
-      return;
-    }
-
-    const points = result.getResultPoints();
-    if (!points || !points.length) { logThrottled('ZXing: no result points', 'warn'); return; }
-
-    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
-    for (const p of points) {
-      const x = p.getX(), y = p.getY();
-      if (x < minX) minX = x;
-      if (y < minY) minY = y;
-      if (x > maxX) maxX = x;
-      if (y > maxY) maxY = y;
-    }
-    const bbox = { x: minX, y: minY, width: maxX - minX, height: maxY - minY };
-
-    // ZXing points are in video (element) pixel coordinates.
-    const vw = video.videoWidth, vh = video.videoHeight;
-    if (!vw || !vh) { logThrottled('ZXing: video size not ready', 'warn'); return; }
-
-    const check = checkRegion(bbox, vw, vh);
-    if (check.pass) { flashRect('hit'); show(result.getText()); }
-    else { flashRect('near'); logThrottled('ZXing outside box: ' + check.reason, 'warn'); }
+    scheduleTick(runLoop);
   }
 
   function waitForVideoSize() {
@@ -772,49 +780,97 @@
     lastText = '';
     lastLookupCode = '';
     log('--- start ---');
-
-    if ('BarcodeDetector' in window) {
-      try {
-        engine = 'native';
-        setStatus('Scanning · native');
-        log('Engine: native BarcodeDetector');
-        await startNative();
-        return;
-      } catch (err) {
-        const m = err && err.message ? err.message : String(err);
-        log('Native failed: ' + m, 'err');
-        if (stream) { stream.getTracks().forEach(t => t.stop()); stream = null; }
-        video.srcObject = null;
-        if (!running) return;
-      }
-    } else {
-      log('Native BarcodeDetector not available', 'warn');
-    }
+    setStatus('Starting camera…');
 
     try {
-      engine = 'zxing';
-      setStatus('Loading decoder…');
-      log('Engine: ZXing fallback');
-      await startZXing();
-      if (running) setStatus('Scanning · ZXing');
+      stream = await acquireCamera();
+      video.srcObject = stream;
+      await video.play();
+      await waitForVideoSize();
     } catch (err) {
       const m = err && err.message ? err.message : String(err);
-      log('Start failed: ' + m, 'err');
+      log('Camera failed: ' + m, 'err');
       setStatus('Error: ' + m);
       stop();
+      return;
     }
+
+    await tryEnableContinuousFocus();
+    setupTorch();
+
+    // Engine 1: native BarcodeDetector (absent on iOS Safari — expected).
+    if ('BarcodeDetector' in window) {
+      try {
+        let formats = ALL_FORMATS;
+        if (typeof BarcodeDetector.getSupportedFormats === 'function') {
+          const supported = await BarcodeDetector.getSupportedFormats();
+          const filtered = ALL_FORMATS.filter(f => supported.indexOf(f) !== -1);
+          if (filtered.length) formats = filtered;
+        }
+        nativeDetector = new BarcodeDetector({ formats });
+        log('Native BarcodeDetector ready (' + formats.length + ' formats)', 'ok');
+      } catch (e) {
+        nativeDetector = null;
+        log('Native detector init failed: ' + (e.message || e), 'warn');
+      }
+    } else {
+      log('Native BarcodeDetector not available (expected on iOS Safari)', 'warn');
+    }
+
+    setStatus(nativeDetector ? 'Scanning · native' : 'Loading decoder…');
+
+    // Engine 2: ZXing — always loaded, since it's the rotation/1D backstop
+    // on Android and the only engine at all on iOS.
+    loadZXing().then((ZX) => {
+      if (!running) return;
+      ZXingLib = ZX;
+      const hints = new Map();
+      hints.set(ZX.DecodeHintType.TRY_HARDER, true);
+      const formats = [];
+      for (const name of ALL_FORMATS) {
+        const key = name.toUpperCase().replace(/-/g, '_');
+        if (ZX.BarcodeFormat[key] !== undefined) formats.push(ZX.BarcodeFormat[key]);
+      }
+      hints.set(ZX.DecodeHintType.POSSIBLE_FORMATS, formats);
+      zxingReader = new ZX.BrowserMultiFormatReader(hints);
+      zxingCanvasOK = typeof zxingReader.decodeFromCanvas === 'function';
+      if (!zxingCanvasOK) {
+        log('ZXing loaded but decodeFromCanvas unavailable in this build — ZXing disabled', 'warn');
+      } else {
+        log('ZXing ready (' + formats.length + ' formats)', 'ok');
+      }
+      if (!nativeDetector && zxingCanvasOK) setStatus('Scanning · ZXing');
+    }).catch((e) => {
+      log('ZXing failed to load: ' + (e.message || e), nativeDetector ? 'warn' : 'err');
+      if (!nativeDetector) {
+        setStatus('Error: no decoder available');
+        stop();
+      }
+    });
+
+    runLoop();
   }
 
   function stop() {
     running = false;
-    engine = 'none';
     if (rafId) { cancelAnimationFrame(rafId); rafId = 0; }
+    if (rvfcHandle && video.cancelVideoFrameCallback) {
+      try { video.cancelVideoFrameCallback(rvfcHandle); } catch (_) {}
+      rvfcHandle = 0;
+    }
     busy = false;
-    if (zxingReader) { try { zxingReader.reset(); } catch (_) {} zxingReader = null; }
+    nativeDetector = null;
+    zxingReader = null;
+    zxingCanvasOK = false;
+    ZXingLib = null;
     if (stream) { stream.getTracks().forEach(t => t.stop()); stream = null; }
     try { video.pause(); } catch (_) {}
     video.srcObject = null;
-    rectEl.classList.remove('on', 'hit', 'near');
+    torchTrack = null;
+    torchOn = false;
+    torchBtn.hidden = true;
+    torchBtn.classList.remove('on');
+    rectEl.classList.remove('on', 'hit');
     startBtn.disabled = false;
     stopBtn.disabled = true;
     setStatus('Stopped');
@@ -827,13 +883,14 @@
     modeBtns.forEach(b => b.classList.toggle('active', b.dataset.mode === mode));
     updateOverlay();
     clearTimeout(flashTimer);
-    rectEl.classList.remove('hit', 'near');
+    rectEl.classList.remove('hit');
     log('Mode: ' + mode);
   }
 
   // ------------------------------------------------------------- wiring
   startBtn.addEventListener('click', start);
   stopBtn.addEventListener('click', stop);
+  torchBtn.addEventListener('click', toggleTorch);
   modeBtns.forEach(b => b.addEventListener('click', () => setMode(b.dataset.mode)));
 
   window.addEventListener('resize', updateOverlay);
