@@ -73,7 +73,7 @@
     position: absolute; left: 0; right: 0; bottom: 0;
     padding: 24px 16px calc(16px + env(safe-area-inset-bottom));
     background: linear-gradient(transparent, rgba(0,0,0,.92) 35%);
-    max-height: 52%; overflow-y: auto; -webkit-overflow-scrolling: touch;
+    max-height: 62%; overflow-y: auto; -webkit-overflow-scrolling: touch;
     z-index: 2;
   }
 
@@ -104,6 +104,13 @@
   #product .badge.grade-d { background: #7a2e00; color: #ffab91; }
   #product .badge.grade-e { background: #6b1c1c; color: #ef9a9a; }
 
+  #ingredients {
+    margin-top: 10px; font-size: 12px; color: #9aa0a6; line-height: 1.5;
+    display: none;
+  }
+  #ingredients.visible { display: block; }
+  #ingredients b { color: #d0d0d5; font-weight: 700; display: block; margin-bottom: 3px; }
+
   #lookupLink {
     display: block; margin-top: 16px; text-align: center;
     padding: 13px 16px; border-radius: 10px;
@@ -125,6 +132,133 @@
   #torch { flex: 0 0 auto; min-width: 64px; background: #232326; }
   #torch.on { background: #fbbf24; color: #1a1a1a; }
   #torch[hidden] { display: none; }
+
+  /* ===================== PATIENT PROFILE ===================== */
+  #profileCard {
+    margin-bottom: 12px;
+    border: 1px solid rgba(255,255,255,0.09);
+    border-radius: 12px;
+    background: rgba(18,18,22,0.88);
+    -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px);
+    overflow: hidden;
+  }
+  #profileToggle {
+    width: 100%;
+    display: flex; align-items: center; gap: 8px;
+    padding: 12px 14px;
+    background: transparent; border: 0; color: #fff;
+    font: inherit; font-size: 13.5px; font-weight: 700;
+    cursor: pointer; text-align: left;
+  }
+  #profileToggle .ptitle { flex: 0 0 auto; }
+  #profileSummary {
+    margin-left: auto; color: #9aa0a6; font-weight: 400; font-size: 12px;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 48%;
+  }
+  #profileToggle .chev { color: #9aa0a6; transition: transform .2s; flex: 0 0 auto; }
+  #profileCard.open #profileToggle .chev { transform: rotate(180deg); }
+
+  #profileBody { display: none; padding: 0 14px 14px; }
+  #profileCard.open #profileBody { display: block; }
+
+  .field-row { display: flex; gap: 8px; margin-bottom: 12px; }
+  .field { flex: 1; display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+  .field label {
+    font-size: 10.5px; color: #9aa0a6;
+    text-transform: uppercase; letter-spacing: .5px;
+  }
+  .field input, .field select {
+    width: 100%; padding: 9px 10px; font: inherit; font-size: 14px;
+    background: #0d0d11; color: #fff;
+    border: 1px solid #2a2a2e; border-radius: 8px;
+  }
+  .field input:focus, .field select:focus { outline: none; border-color: #1f6feb; }
+
+  .cond-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+    gap: 6px;
+    margin-top: 6px;
+  }
+  .cond {
+    display: flex; align-items: center; gap: 8px;
+    padding: 9px 10px; border-radius: 9px;
+    background: #0d0d11; border: 1px solid #232326;
+    font-size: 12.5px; cursor: pointer; user-select: none;
+    transition: background .12s, border-color .12s;
+    line-height: 1.25;
+  }
+  .cond input { display: none; }
+  .cond .tick {
+    width: 18px; height: 18px; border-radius: 5px; flex: 0 0 auto;
+    border: 2px solid #3a3a40;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 12px; color: transparent;
+    transition: all .12s;
+  }
+  .cond.on { background: #14223c; border-color: #1f6feb; }
+  .cond.on .tick { background: #1f6feb; border-color: #1f6feb; color: #fff; }
+  .cond .ico { font-size: 15px; flex: 0 0 auto; }
+
+  .profile-note { font-size: 11px; color: #6b6b70; margin-top: 12px; text-align: center; }
+
+  /* ===================== ANALYSIS ===================== */
+  #analysis { display: none; }
+  #analysis.visible { display: block; }
+
+  .score-wrap {
+    display: flex; align-items: center; gap: 14px;
+    margin: 14px 0 4px;
+  }
+  .score-circle {
+    width: 68px; height: 68px; border-radius: 50%; flex: 0 0 auto;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 23px; font-weight: 800; color: #fff;
+    background: var(--c, #444);
+    box-shadow: 0 0 0 4px rgba(255,255,255,0.05), 0 0 22px -6px var(--c, #444);
+    font-variant-numeric: tabular-nums;
+  }
+  .score-meta { flex: 1; min-width: 0; }
+  .score-title { font-size: 14px; font-weight: 800; letter-spacing: .3px; }
+  .score-sub { font-size: 11.5px; color: #9aa0a6; margin-top: 3px; }
+
+  .tl-title {
+    font-size: 10.5px; color: #9aa0a6; text-transform: uppercase;
+    letter-spacing: .7px; margin: 16px 0 6px; font-weight: 700;
+  }
+  .tl-row { display: flex; align-items: center; gap: 9px; padding: 4px 0; }
+  .tl-dot { width: 10px; height: 10px; border-radius: 50%; flex: 0 0 auto; }
+  .tl-name { flex: 0 0 86px; font-size: 12.5px; color: #d0d0d5; }
+  .tl-bar {
+    flex: 1 1 auto; height: 8px; border-radius: 4px;
+    background: #202024; overflow: hidden;
+  }
+  .tl-fill { display: block; height: 100%; border-radius: 4px; transition: width .25s ease; }
+  .tl-val {
+    flex: 0 0 auto; font-size: 11.5px; color: #b8bcc2;
+    font-variant-numeric: tabular-nums; min-width: 62px; text-align: right;
+  }
+
+  .cond-list { display: flex; flex-direction: column; gap: 8px; }
+  .cond-card {
+    padding: 10px 12px; border-radius: 10px;
+    background: #121218; border-left: 4px solid #444;
+  }
+  .cond-card.good { border-left-color: #22c55e; }
+  .cond-card.warn { border-left-color: #fbbf24; }
+  .cond-card.bad  { border-left-color: #ef4444; }
+  .cond-head {
+    display: flex; align-items: center; gap: 8px;
+    font-size: 13px; font-weight: 700;
+  }
+  .cond-head .ico { font-size: 15px; }
+  .cond-score {
+    margin-left: auto; font-size: 13.5px;
+    font-variant-numeric: tabular-nums; font-weight: 800;
+  }
+  .cond-note {
+    font-size: 11.5px; color: #9aa0a6; margin-top: 5px; line-height: 1.5;
+  }
 </style>
 </head>
 <body>
@@ -139,12 +273,50 @@
     </div>
 
     <div id="panel">
+
+      <div id="profileCard">
+        <button id="profileToggle" type="button">
+          <span class="ico">👤</span>
+          <span class="ptitle">Patient Profile</span>
+          <span id="profileSummary">not set</span>
+          <span class="chev">▾</span>
+        </button>
+        <div id="profileBody">
+          <div class="field-row">
+            <div class="field">
+              <label for="pAge">Age</label>
+              <input id="pAge" type="number" min="0" max="120" inputmode="numeric" placeholder="—">
+            </div>
+            <div class="field">
+              <label for="pSex">Sex</label>
+              <select id="pSex">
+                <option value="">—</option>
+                <option value="female">Female</option>
+                <option value="male">Male</option>
+                <option value="other">Other</option>
+              </select>
+            </div>
+            <div class="field">
+              <label for="pWeight">Weight kg</label>
+              <input id="pWeight" type="number" min="0" max="400" inputmode="decimal" placeholder="—">
+            </div>
+          </div>
+
+          <div class="tl-title" style="margin-top:0">Health conditions</div>
+          <div class="cond-grid" id="condGrid"></div>
+
+          <div class="profile-note">Saved on this device only · not medical advice</div>
+        </div>
+      </div>
+
       <div id="code">—</div>
       <div id="gs1"></div>
       <div id="product">
         <div class="name"></div>
         <div class="brand"></div>
         <div class="meta"></div>
+        <div id="ingredients"></div>
+        <div id="analysis"></div>
       </div>
       <a id="lookupLink" href="#" target="_blank" rel="noopener noreferrer" hidden>View on Barcode Lookup ↗</a>
     </div>
@@ -170,6 +342,8 @@
   const nameEl    = productEl.querySelector('.name');
   const brandEl   = productEl.querySelector('.brand');
   const metaEl    = productEl.querySelector('.meta');
+  const ingredientsEl = document.getElementById('ingredients');
+  const analysisEl    = document.getElementById('analysis');
   const lookupLinkEl = document.getElementById('lookupLink');
   const statusEl  = document.getElementById('status');
   const logEl     = document.getElementById('log');
@@ -267,6 +441,7 @@
   let lookupId        = 0;
   let flashTimer      = 0;
   let lastDetectLog   = 0;
+  let lastProductData = null; // last Open Food Facts product payload
 
   // canvases used for the crop + rotation pipeline (created once)
   const cropCanvas = document.createElement('canvas');
@@ -307,6 +482,11 @@
     nameEl.textContent = '';
     brandEl.textContent = '';
     metaEl.innerHTML = '';
+    ingredientsEl.textContent = '';
+    ingredientsEl.classList.remove('visible');
+    analysisEl.innerHTML = '';
+    analysisEl.classList.remove('visible');
+    lastProductData = null;
   }
 
   // ------------------------------------------------------------ GS1 parse
@@ -377,6 +557,8 @@
 
   function renderProduct(p) {
     if (!p) { clearProduct(); return; }
+    lastProductData = p;
+
     nameEl.textContent = p.product_name || '(no name)';
     brandEl.textContent = [p.brands, p.quantity].filter(Boolean).join(' · ');
     metaEl.innerHTML = '';
@@ -392,7 +574,17 @@
       b.textContent = 'NOVA ' + p.nova_group;
       metaEl.appendChild(b);
     }
+
+    if (p.ingredients_text) {
+      ingredientsEl.innerHTML = '<b>Ingredients</b>' + escapeHtml(p.ingredients_text);
+      ingredientsEl.classList.add('visible');
+    } else {
+      ingredientsEl.textContent = '';
+      ingredientsEl.classList.remove('visible');
+    }
+
     productEl.classList.add('visible');
+    renderAnalysis();
   }
 
   async function lookupOFF(barcode) {
@@ -408,7 +600,8 @@
 
     try {
       const url = OFF_BASE + encodeURIComponent(digits) +
-        '?fields=product_name,brands,quantity,nutrition_grades,nova_group';
+        '?fields=product_name,brands,quantity,nutrition_grades,nova_group,' +
+        'nutriments,ingredients_text,allergens_tags,additives_tags,categories_tags';
       const res = await fetchWithProxies(url);
       if (id !== lookupId) return;
       if (!res.ok) {
@@ -433,6 +626,423 @@
       setStatus('OFF lookup failed');
     }
   }
+
+  // ============================================================
+  // ==============  PATIENT PROFILE + HEALTH SCORING  ==========
+  // ============================================================
+
+  const PROFILE_KEY = 'barcodeScanner.patient.v1';
+
+  const CONDITIONS = [
+    { id: 'diabetes',    label: 'Type 2 Diabetes',        icon: '🩸' },
+    { id: 'hbp',         label: 'High Blood Pressure',    icon: '❤️' },
+    { id: 'cholesterol', label: 'High Cholesterol',       icon: '🫀' },
+    { id: 'ckd',         label: 'Kidney Disease',         icon: '🫘' },
+    { id: 'obesity',     label: 'Weight Management',      icon: '⚖️' },
+    { id: 'gout',        label: 'Gout',                   icon: '🦴' },
+    { id: 'ibs',         label: 'IBS / Gut Sensitivity',  icon: '🌀' },
+    { id: 'celiac',      label: 'Coeliac (Gluten)',       icon: '🌾' },
+    { id: 'lactose',     label: 'Lactose Intolerance',    icon: '🥛' },
+    { id: 'nutallergy',  label: 'Nut Allergy',            icon: '🥜' },
+    { id: 'pregnancy',   label: 'Pregnancy',              icon: '🤰' }
+  ];
+
+  const NUTRIENT_LABELS = {
+    energy: 'Calories', fat: 'Fat', saturated: 'Saturated fat',
+    sugars: 'Sugars', salt: 'Salt', carbohydrates: 'Carbs',
+    fiber: 'Fibre', proteins: 'Protein'
+  };
+
+  // UK FSA / NHS front-of-pack "traffic light" thresholds, per 100 g.
+  const TL = {
+    fat:       { green: 3.0, red: 17.5, label: 'Fat' },
+    saturated: { green: 1.5, red: 5.0,  label: 'Saturated fat' },
+    sugars:    { green: 5.0, red: 22.5, label: 'Sugars' },
+    salt:      { green: 0.3, red: 1.5,  label: 'Salt' }
+  };
+
+  // Which nutrients matter for which condition, and how much.
+  const CONDITION_RULES = {
+    diabetes:    { nutrients: { sugars: 3, carbohydrates: 1.5, fiber: 2 } },
+    hbp:         { nutrients: { salt: 4, saturated: 1 } },
+    cholesterol: { nutrients: { saturated: 3, fat: 1.5, fiber: 2 } },
+    ckd:         { nutrients: { salt: 4, proteins: 1.5 } },
+    obesity:     { nutrients: { energy: 2, sugars: 2, saturated: 2, fiber: 1.5 } },
+    gout:        { nutrients: { sugars: 2, proteins: 1.5, energy: 1 } },
+    ibs:         { nutrients: { fat: 1.5, sugars: 1.5, fiber: 1 } },
+    pregnancy:   { nutrients: { salt: 1, sugars: 1.5, saturated: 1.5, proteins: 1 } },
+    celiac:      { allergen: 'gluten' },
+    lactose:     { allergen: 'milk' },
+    nutallergy:  { allergen: 'nuts' }
+  };
+
+  const DEFAULT_PROFILE = { age: '', sex: '', weight: '', conditions: {} };
+
+  function loadProfile() {
+    try {
+      const raw = localStorage.getItem(PROFILE_KEY);
+      if (!raw) return JSON.parse(JSON.stringify(DEFAULT_PROFILE));
+      const p = JSON.parse(raw);
+      return {
+        age: p && p.age != null ? p.age : '',
+        sex: p && p.sex != null ? p.sex : '',
+        weight: p && p.weight != null ? p.weight : '',
+        conditions: (p && p.conditions && typeof p.conditions === 'object') ? p.conditions : {}
+      };
+    } catch (_) {
+      return JSON.parse(JSON.stringify(DEFAULT_PROFILE));
+    }
+  }
+
+  function saveProfile() {
+    try { localStorage.setItem(PROFILE_KEY, JSON.stringify(profile)); }
+    catch (e) { log('Profile save failed: ' + (e.message || e), 'warn'); }
+  }
+
+  let profile = loadProfile();
+
+  const profileCard    = document.getElementById('profileCard');
+  const profileToggle  = document.getElementById('profileToggle');
+  const profileSummary = document.getElementById('profileSummary');
+  const condGrid       = document.getElementById('condGrid');
+  const pAge           = document.getElementById('pAge');
+  const pSex           = document.getElementById('pSex');
+  const pWeight        = document.getElementById('pWeight');
+
+  function updateProfileSummary() {
+    const ids = Object.keys(profile.conditions).filter(k => profile.conditions[k]);
+    const bits = [];
+    if (profile.age) bits.push(profile.age + 'y');
+    if (profile.sex) bits.push(profile.sex === 'male' ? 'M' : profile.sex === 'female' ? 'F' : 'O');
+    if (ids.length) {
+      bits.push(ids.map(id => {
+        const c = CONDITIONS.find(x => x.id === id);
+        return c ? c.icon : '';
+      }).join(''));
+    }
+    profileSummary.textContent = bits.length ? bits.join(' · ') : 'not set';
+  }
+
+  function buildConditionGrid() {
+    condGrid.innerHTML = '';
+    for (const c of CONDITIONS) {
+      const checked = !!profile.conditions[c.id];
+      const lab = document.createElement('label');
+      lab.className = 'cond' + (checked ? ' on' : '');
+      lab.dataset.id = c.id;
+      lab.innerHTML =
+        '<input type="checkbox"' + (checked ? ' checked' : '') + '>' +
+        '<span class="tick">✓</span>' +
+        '<span class="ico">' + c.icon + '</span>' +
+        '<span class="lbl">' + c.label + '</span>';
+      const cb = lab.querySelector('input');
+      cb.addEventListener('change', () => {
+        profile.conditions[c.id] = cb.checked;
+        lab.classList.toggle('on', cb.checked);
+        saveProfile();
+        updateProfileSummary();
+        renderAnalysis();
+      });
+      condGrid.appendChild(lab);
+    }
+  }
+
+  profileToggle.addEventListener('click', () => {
+    profileCard.classList.toggle('open');
+  });
+
+  pAge.addEventListener('input', () => {
+    profile.age = pAge.value; saveProfile(); updateProfileSummary(); renderAnalysis();
+  });
+  pSex.addEventListener('change', () => {
+    profile.sex = pSex.value; saveProfile(); updateProfileSummary(); renderAnalysis();
+  });
+  pWeight.addEventListener('input', () => {
+    profile.weight = pWeight.value; saveProfile(); updateProfileSummary();
+  });
+
+  pAge.value = profile.age;
+  pSex.value = profile.sex;
+  pWeight.value = profile.weight;
+  buildConditionGrid();
+  updateProfileSummary();
+
+  // ------------------------- nutrient extraction -------------------------
+
+  function pick() {
+    for (let i = 0; i < arguments.length; i++) {
+      if (arguments[i] != null) return arguments[i];
+    }
+    return null;
+  }
+
+  function numOr(v) {
+    if (v === '' || v == null) return null;
+    const n = Number(v);
+    return isFinite(n) ? n : null;
+  }
+
+  function extractNutrients(p) {
+    const nu = (p && p.nutriments) || {};
+    const sodium = numOr(nu.sodium_100g);
+    const salt   = pick(numOr(nu.salt_100g), sodium != null ? sodium * 2.5 : null);
+    const kcal   = numOr(nu['energy-kcal_100g']);
+    const kj     = numOr(nu.energy_100g);
+    const energy = pick(kcal, kj != null ? kj / 4.184 : null);
+    return {
+      energy:        energy,
+      fat:           numOr(nu.fat_100g),
+      saturated:     numOr(nu['saturated-fat_100g']),
+      carbohydrates: numOr(nu.carbohydrates_100g),
+      sugars:        numOr(nu.sugars_100g),
+      fiber:         numOr(nu.fiber_100g),
+      proteins:      numOr(nu.proteins_100g),
+      salt:          salt
+    };
+  }
+
+  // ------------------------- scoring primitives -------------------------
+
+  function bandScore(value, green, red) {
+    if (value == null) return null;
+    if (value <= 0) return 10;
+    if (value <= green) return 10 - 2 * (value / green);                  // 8..10
+    if (value <= red)   return 8 - 4 * ((value - green) / (red - green)); // 4..8
+    const over = Math.min(1, (value - red) / Math.max(red, 0.0001));
+    return Math.max(1, 4 - 3 * over);                                     // 1..4
+  }
+
+  function positiveScore(value, mid, high) {
+    if (value == null) return null;
+    if (value >= high) return 10;
+    if (value >= mid)  return 7 + 3 * ((value - mid) / (high - mid));
+    return 1 + 6 * (value / mid);
+  }
+
+  function scoreNutrient(key, n, condId) {
+    const v = n[key];
+    if (v == null) return null;
+    switch (key) {
+      case 'fat':           return bandScore(v, 3.0, 17.5);
+      case 'saturated':     return bandScore(v, 1.5, 5.0);
+      case 'sugars':        return bandScore(v, 5.0, 22.5);
+      case 'salt':          return bandScore(v, 0.3, 1.5);
+      case 'carbohydrates': return bandScore(v, 15, 60);
+      case 'energy':        return bandScore(v, 150, 400);
+      case 'fiber':         return positiveScore(v, 3, 6);
+      case 'proteins':
+        // For kidney disease a high protein load is a concern, not a benefit.
+        if (condId === 'ckd') return bandScore(v, 6, 15);
+        return positiveScore(v, 8, 20);
+    }
+    return null;
+  }
+
+  function tlLevel(key, value) {
+    if (value == null) return null;
+    const t = TL[key];
+    if (value <= t.green) return 'green';
+    if (value <= t.red)   return 'amber';
+    return 'red';
+  }
+
+  function fmtNutrient(key, val) {
+    if (val == null) return '—';
+    if (key === 'energy') return Math.round(val) + ' kcal';
+    const dec = (key === 'salt' || key === 'saturated') ? 2 : 1;
+    return val.toFixed(dec) + ' g';
+  }
+
+  function scoreColor(score) {
+    if (score == null) return '#6b6b70';
+    if (score >= 7.5) return '#22c55e';
+    if (score >= 5)   return '#fbbf24';
+    if (score >= 3)   return '#fb923c';
+    return '#ef4444';
+  }
+
+  function scoreWord(score) {
+    if (score == null) return 'Not enough data';
+    if (score >= 7.5) return 'Good choice';
+    if (score >= 5)   return 'OK in moderation';
+    if (score >= 3)   return 'Limit intake';
+    return 'Best avoided';
+  }
+
+  function generalScore(n) {
+    const parts = [
+      ['fat', 1], ['saturated', 2], ['sugars', 2], ['salt', 2],
+      ['fiber', 1.5], ['proteins', 1]
+    ];
+    let sum = 0, wsum = 0;
+    for (const [k, w] of parts) {
+      const s = scoreNutrient(k, n);
+      if (s == null) continue;
+      sum += s * w; wsum += w;
+    }
+    return wsum ? sum / wsum : null;
+  }
+
+  function scoreCondition(condId, n, allergens) {
+    const rule = CONDITION_RULES[condId];
+    if (!rule) return { score: null, alerts: [], good: [] };
+
+    if (rule.allergen) {
+      const has = (allergens || []).some(a =>
+        String(a).toLowerCase().indexOf(rule.allergen) !== -1);
+      if (has) return { score: 1, alerts: ['Contains ' + rule.allergen + ' — avoid'], good: [] };
+      return { score: 10, alerts: [], good: ['No ' + rule.allergen + ' declared'] };
+    }
+
+    let sum = 0, wsum = 0;
+    const alerts = [], good = [];
+    for (const key in rule.nutrients) {
+      if (!Object.prototype.hasOwnProperty.call(rule.nutrients, key)) continue;
+      const w = rule.nutrients[key];
+      const val = n[key];
+      const s = scoreNutrient(key, n, condId);
+      if (s == null || val == null) continue;
+      sum += s * w; wsum += w;
+      if (s <= 4) {
+        alerts.push(NUTRIENT_LABELS[key] + ' ' + fmtNutrient(key, val) +
+                    ' · ' + (s <= 2 ? 'very high' : 'high'));
+      } else if (s >= 8.5 && (key === 'fiber' || key === 'proteins')) {
+        good.push('Good ' + NUTRIENT_LABELS[key].toLowerCase());
+      }
+    }
+    return { score: wsum ? sum / wsum : null, alerts, good };
+  }
+
+  // --------------------------- analysis render ---------------------------
+
+  function renderAnalysis() {
+    if (!lastProductData) {
+      analysisEl.innerHTML = '';
+      analysisEl.classList.remove('visible');
+      return;
+    }
+
+    const n = extractNutrients(lastProductData);
+    const allergens = lastProductData.allergens_tags || [];
+    const activeConds = CONDITIONS.map(c => c.id).filter(id => !!profile.conditions[id]);
+
+    const condResults = activeConds.map(id => {
+      const r = scoreCondition(id, n, allergens) || { score: null, alerts: [], good: [] };
+      return { id: id, score: r.score, alerts: r.alerts || [], good: r.good || [] };
+    });
+
+    let overall = null;
+    let overallLabel = '';
+    if (activeConds.length) {
+      const valid = condResults.filter(r => r.score != null);
+      if (valid.length) {
+        overall = valid.reduce((s, r) => s + r.score, 0) / valid.length;
+        overallLabel = 'Overall for your profile';
+      } else {
+        overallLabel = 'Nutrition data missing for your conditions';
+      }
+    } else {
+      overall = generalScore(n);
+      overallLabel = 'General health score';
+    }
+
+    const col = scoreColor(overall);
+    const overallTxt = overall == null ? '?' : overall.toFixed(1);
+    const parts = [];
+
+    // -------- headline score --------
+    parts.push(
+      '<div class="score-wrap">' +
+        '<div class="score-circle" style="--c:' + col + '">' + overallTxt + '</div>' +
+        '<div class="score-meta">' +
+          '<div class="score-title" style="color:' + col + '">' + scoreWord(overall) + '</div>' +
+          '<div class="score-sub">' + overallLabel + ' · values per 100 g</div>' +
+        '</div>' +
+      '</div>'
+    );
+
+    // -------- traffic lights --------
+    parts.push('<div class="tl-title">Nutrition traffic lights</div>');
+    const tlKeys = ['sugars', 'salt', 'saturated', 'fat'];
+    for (const k of tlKeys) {
+      const val = n[k];
+      const lvl = val == null ? null : tlLevel(k, val);
+      const c = lvl === 'green' ? '#22c55e'
+              : lvl === 'amber' ? '#fbbf24'
+              : lvl === 'red'   ? '#ef4444'
+              : '#3a3a40';
+      const pct = val == null ? 0 : Math.min(100, (val / (TL[k].red * 1.6)) * 100);
+      parts.push(
+        '<div class="tl-row">' +
+          '<span class="tl-dot" style="background:' + c + '"></span>' +
+          '<span class="tl-name">' + TL[k].label + '</span>' +
+          '<span class="tl-bar"><span class="tl-fill" style="width:' + pct + '%;background:' + c + '"></span></span>' +
+          '<span class="tl-val">' + fmtNutrient(k, val) + '</span>' +
+        '</div>'
+      );
+    }
+
+    // -------- beneficial nutrients --------
+    parts.push('<div class="tl-title">Beneficial</div>');
+    const posKeys = [['fiber', 8], ['proteins', 25]];
+    for (const [k, maxVal] of posKeys) {
+      const val = n[k];
+      const s = scoreNutrient(k, n);
+      const c = scoreColor(s);
+      const pct = val == null ? 0 : Math.min(100, (val / maxVal) * 100);
+      parts.push(
+        '<div class="tl-row">' +
+          '<span class="tl-dot" style="background:' + c + '"></span>' +
+          '<span class="tl-name">' + NUTRIENT_LABELS[k] + '</span>' +
+          '<span class="tl-bar"><span class="tl-fill" style="width:' + pct + '%;background:' + c + '"></span></span>' +
+          '<span class="tl-val">' + fmtNutrient(k, val) + '</span>' +
+        '</div>'
+      );
+    }
+
+    // -------- per-condition cards --------
+    if (activeConds.length) {
+      parts.push('<div class="tl-title">For your conditions</div>');
+      parts.push('<div class="cond-list">');
+      for (const r of condResults) {
+        const cdef = CONDITIONS.find(x => x.id === r.id) || { label: r.id, icon: '' };
+        const s = r.score;
+        const cls = s == null ? '' : s >= 7.5 ? 'good' : s >= 5 ? 'warn' : 'bad';
+        const notes = [];
+        if (r.alerts && r.alerts.length) notes.push('⚠ ' + r.alerts.join(' · '));
+        else if (s != null && s >= 7.5)   notes.push('✓ No major concerns');
+        if (r.good && r.good.length)      notes.push('✓ ' + r.good.join(' · '));
+        parts.push(
+          '<div class="cond-card ' + cls + '">' +
+            '<div class="cond-head">' +
+              '<span class="ico">' + cdef.icon + '</span>' +
+              '<span>' + cdef.label + '</span>' +
+              '<span class="cond-score" style="color:' + scoreColor(s) + '">' +
+                (s == null ? '—' : s.toFixed(1) + '/10') +
+              '</span>' +
+            '</div>' +
+            (notes.length ? '<div class="cond-note">' + notes.join('<br>') + '</div>' : '') +
+          '</div>'
+        );
+      }
+      parts.push('</div>');
+    } else {
+      parts.push(
+        '<div class="profile-note" style="margin-top:14px">' +
+        'Add health conditions in your profile for personalised scoring.' +
+        '</div>'
+      );
+    }
+
+    parts.push('<div class="profile-note">Guidance only — not medical advice.</div>');
+
+    analysisEl.innerHTML = parts.join('');
+    analysisEl.classList.add('visible');
+  }
+
+  // ============================================================
+  // ===================  END PROFILE + SCORING  ================
+  // ============================================================
 
   // --------------------------------------------------- viewfinder region
   // Defines BOTH what's drawn on screen and what gets cropped for decoding,
