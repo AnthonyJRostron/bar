@@ -1,14 +1,14 @@
 <!doctype html>
-<html lang="en">
+<html lang="es">
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
 <meta name="theme-color" content="#000000" />
-<title>Barcode Scanner</title>
+<title>Escáner de Códigos</title>
 <style>
   :root { color-scheme: dark; }
   * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
-  html, body { margin: 0; height: 100%; }
+  html, body { margin: 0; height: 100%; overscroll-behavior: none; }
   body {
     background: #000; color: #fff;
     font: 16px/1.4 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
@@ -37,45 +37,91 @@
     box-shadow: 0 0 0 9999px rgba(0,0,0,0.45), 0 0 22px rgba(110,231,168,0.75);
   }
 
+  #tapCatch {
+    position: absolute; inset: 0;
+    z-index: 1;
+    background: transparent;
+    cursor: pointer;
+    user-select: none; -webkit-user-select: none;
+  }
+  #tapCatch.off { pointer-events: none; }
+
+  #fabs {
+    position: absolute;
+    top: calc(10px + env(safe-area-inset-top));
+    right: 12px;
+    z-index: 3;
+    display: flex; gap: 8px;
+  }
+  #fabs[hidden] { display: none; }
+  .fab {
+    width: 42px; height: 42px; border-radius: 50%;
+    background: rgba(20,20,24,0.82);
+    border: 1px solid rgba(255,255,255,0.14);
+    color: #fff; font: inherit; font-size: 18px;
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer;
+    -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px);
+    padding: 0;
+  }
+  .fab[hidden] { display: none; }
+  #torchFab.on { background: #fbbf24; color: #1a1a1a; border-color: #fbbf24; }
+
+  #toast {
+    position: absolute;
+    left: 50%; top: 34%;
+    transform: translate(-50%, -50%);
+    background: rgba(20,20,24,0.92);
+    border: 1px solid rgba(255,255,255,0.12);
+    padding: 14px 22px;
+    border-radius: 14px;
+    font-size: 15px; font-weight: 700;
+    color: #fff;
+    z-index: 5;
+    opacity: 0;
+    transition: opacity .25s ease;
+    pointer-events: none;
+    text-align: center;
+    max-width: 82%;
+    box-shadow: 0 8px 30px rgba(0,0,0,0.6);
+    -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px);
+    line-height: 1.35;
+  }
+  #toast.on { opacity: 1; }
+
   #topbar {
     position: absolute; top: 0; left: 0; right: 0;
-    padding: calc(10px + env(safe-area-inset-top)) 12px 0;
+    padding: calc(12px + env(safe-area-inset-top)) 12px 0;
     z-index: 2;
-    display: flex; flex-direction: column; align-items: center; gap: 8px;
+    display: flex; justify-content: center;
     pointer-events: none;
   }
-
   #status {
     font-size: 12px; color: #9aa0a6; text-align: center;
     text-shadow: 0 1px 3px rgba(0,0,0,0.95);
+    max-width: 70%;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
   }
-
-  #logWrap {
-    width: 100%; max-width: 460px;
-    background: rgba(0,0,0,0.72);
-    border: 1px solid rgba(255,255,255,0.08);
-    border-radius: 10px;
-    padding: 6px 10px;
-    pointer-events: auto;
-    -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px);
-  }
-  #log {
-    margin: 0; font-family: ui-monospace, monospace;
-    font-size: 10.5px; line-height: 1.45; color: #b8bcc2;
-    white-space: pre-wrap; word-break: break-word;
-    max-height: 62px; overflow: hidden;
-  }
-  #log .err { color: #ef9a9a; }
-  #log .ok  { color: #6ee7a8; }
-  #log .warn{ color: #fbbf24; }
+  body.running #status { padding-right: 92px; }
 
   #panel {
     position: absolute; left: 0; right: 0; bottom: 0;
     padding: 24px 16px calc(16px + env(safe-area-inset-bottom));
     background: linear-gradient(transparent, rgba(0,0,0,.92) 35%);
-    max-height: 52%; overflow-y: auto; -webkit-overflow-scrolling: touch;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior: contain;
     z-index: 2;
+    max-height: 82%;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(255,255,255,0.22) rgba(255,255,255,0.04);
   }
+  body.running #panel { max-height: 46%; }
+
+  #panel::-webkit-scrollbar { width: 6px; }
+  #panel::-webkit-scrollbar-track { background: rgba(255,255,255,0.04); border-radius: 3px; }
+  #panel::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.22); border-radius: 3px; }
+  #panel::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.35); }
 
   #code {
     font-size: clamp(20px, 7vw, 38px); font-weight: 700;
@@ -104,27 +150,162 @@
   #product .badge.grade-d { background: #7a2e00; color: #ffab91; }
   #product .badge.grade-e { background: #6b1c1c; color: #ef9a9a; }
 
-  #lookupLink {
-    display: block; margin-top: 16px; text-align: center;
-    padding: 13px 16px; border-radius: 10px;
-    background: #1f6feb; color: #fff; text-decoration: none;
-    font-weight: 600; font-size: 14px;
+  #ingredients {
+    margin-top: 18px; padding-top: 14px; border-top: 1px solid #2a2a2e;
+    font-size: 12px; color: #9aa0a6; line-height: 1.55;
+    display: none;
   }
-  #lookupLink[hidden] { display: none; }
+  #ingredients.visible { display: block; }
+  #ingredients b { color: #d0d0d5; font-weight: 700; display: block; margin-bottom: 4px; }
 
-  #bar {
-    flex: 0 0 auto; display: flex; gap: 10px;
-    padding: 12px 12px calc(12px + env(safe-area-inset-bottom));
-    background: #0b0b0c; border-top: 1px solid #1c1c1f;
+  /* ===================== PERFIL DEL PACIENTE ===================== */
+  #profileCard {
+    margin-bottom: 12px;
+    border: 1px solid rgba(255,255,255,0.09);
+    border-radius: 12px;
+    background: rgba(18,18,22,0.88);
+    -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px);
+    overflow: hidden;
+    transition: box-shadow .18s ease, border-color .18s ease;
   }
-  #bar button {
-    flex: 1; padding: 15px 12px; font: inherit; font-size: 16px; font-weight: 600;
-    color: #fff; background: #1f6feb; border: 0; border-radius: 12px; cursor: pointer;
+  #profileCard.open {
+    border-color: rgba(31,111,235,0.55);
+    box-shadow: 0 0 0 3px rgba(31,111,235,0.12);
   }
-  #bar button:disabled { background: #232326; color: #6b6b70; cursor: default; }
-  #torch { flex: 0 0 auto; min-width: 64px; background: #232326; }
-  #torch.on { background: #fbbf24; color: #1a1a1a; }
-  #torch[hidden] { display: none; }
+  #profileToggle {
+    width: 100%;
+    display: flex; align-items: center; gap: 8px;
+    padding: 12px 14px;
+    background: transparent; border: 0; color: #fff;
+    font: inherit; font-size: 13.5px; font-weight: 700;
+    cursor: pointer; text-align: left;
+  }
+  #profileToggle .ptitle { flex: 0 0 auto; }
+  #profileSummary {
+    margin-left: auto; color: #9aa0a6; font-weight: 400; font-size: 12px;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 62%;
+  }
+  #profileToggle .chev { color: #9aa0a6; transition: transform .2s; flex: 0 0 auto; }
+  #profileCard.open #profileToggle .chev { transform: rotate(180deg); }
+
+  #profileBody { display: none; padding: 0 14px 14px; }
+  #profileCard.open #profileBody { display: block; }
+
+  .cond-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+    gap: 6px;
+    margin-top: 6px;
+  }
+  .cond {
+    display: flex; align-items: center; gap: 8px;
+    padding: 9px 10px; border-radius: 9px;
+    background: #0d0d11; border: 1px solid #232326;
+    font-size: 12.5px; cursor: pointer; user-select: none;
+    transition: background .12s, border-color .12s;
+    line-height: 1.25;
+  }
+  .cond input { display: none; }
+  .cond .tick {
+    width: 18px; height: 18px; border-radius: 5px; flex: 0 0 auto;
+    border: 2px solid #3a3a40;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 12px; color: transparent;
+    transition: all .12s;
+  }
+  .cond.on { background: #14223c; border-color: #1f6feb; }
+  .cond.on .tick { background: #1f6feb; border-color: #1f6feb; color: #fff; }
+  .cond .ico { font-size: 15px; flex: 0 0 auto; }
+
+  .profile-note { font-size: 11px; color: #6b6b70; margin-top: 12px; text-align: center; }
+
+  /* ===================== ANÁLISIS ===================== */
+  #analysis { display: none; }
+  #analysis.visible { display: block; }
+
+  /* Aviso de alérgeno — mucho más evidente */
+  .allergen-warning {
+    display: flex; gap: 14px; align-items: flex-start;
+    background: linear-gradient(135deg, #7f1d1d 0%, #991b1b 100%);
+    border: 2px solid #ef4444;
+    border-radius: 14px;
+    padding: 15px 16px;
+    margin: 14px 0 6px;
+    box-shadow: 0 0 0 3px rgba(239,68,68,0.15), 0 10px 28px -8px rgba(239,68,68,0.7);
+    animation: allergen-pulse 2.2s ease-in-out infinite;
+  }
+  @keyframes allergen-pulse {
+    0%, 100% { box-shadow: 0 0 0 3px rgba(239,68,68,0.15), 0 10px 28px -8px rgba(239,68,68,0.7); }
+    50%      { box-shadow: 0 0 0 7px rgba(239,68,68,0.28), 0 10px 34px -6px rgba(239,68,68,1); }
+  }
+  .allergen-warning .aw-icon {
+    font-size: 30px; line-height: 1; flex: 0 0 auto;
+    filter: drop-shadow(0 2px 4px rgba(0,0,0,0.5));
+  }
+  .allergen-warning .aw-body { flex: 1; min-width: 0; }
+  .allergen-warning .aw-title {
+    font-size: 14.5px; font-weight: 800; letter-spacing: .8px;
+    color: #fff; text-transform: uppercase;
+  }
+  .allergen-warning .aw-item {
+    font-size: 13.5px; color: #fee2e2; margin-top: 6px; line-height: 1.45;
+    font-weight: 600;
+  }
+  .allergen-warning .aw-item .ico { font-size: 16px; margin-right: 4px; }
+
+  .score-wrap {
+    display: flex; align-items: center; gap: 14px;
+    margin: 14px 0 4px;
+  }
+  .score-circle {
+    width: 68px; height: 68px; border-radius: 50%; flex: 0 0 auto;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 23px; font-weight: 800; color: #fff;
+    background: var(--c, #444);
+    box-shadow: 0 0 0 4px rgba(255,255,255,0.05), 0 0 22px -6px var(--c, #444);
+    font-variant-numeric: tabular-nums;
+  }
+  .score-meta { flex: 1; min-width: 0; }
+  .score-title { font-size: 14px; font-weight: 800; letter-spacing: .3px; }
+  .score-sub { font-size: 11.5px; color: #9aa0a6; margin-top: 3px; }
+
+  .tl-title {
+    font-size: 10.5px; color: #9aa0a6; text-transform: uppercase;
+    letter-spacing: .7px; margin: 16px 0 6px; font-weight: 700;
+  }
+  .tl-row { display: flex; align-items: center; gap: 9px; padding: 4px 0; }
+  .tl-dot { width: 10px; height: 10px; border-radius: 50%; flex: 0 0 auto; }
+  .tl-name { flex: 0 0 96px; font-size: 12.5px; color: #d0d0d5; }
+  .tl-bar {
+    flex: 1 1 auto; height: 8px; border-radius: 4px;
+    background: #202024; overflow: hidden;
+  }
+  .tl-fill { display: block; height: 100%; border-radius: 4px; transition: width .25s ease; }
+  .tl-val {
+    flex: 0 0 auto; font-size: 11.5px; color: #b8bcc2;
+    font-variant-numeric: tabular-nums; min-width: 66px; text-align: right;
+  }
+
+  .cond-list { display: flex; flex-direction: column; gap: 8px; }
+  .cond-card {
+    padding: 10px 12px; border-radius: 10px;
+    background: #121218; border-left: 4px solid #444;
+  }
+  .cond-card.good { border-left-color: #22c55e; }
+  .cond-card.warn { border-left-color: #fbbf24; }
+  .cond-card.bad  { border-left-color: #ef4444; }
+  .cond-head {
+    display: flex; align-items: center; gap: 8px;
+    font-size: 13px; font-weight: 700;
+  }
+  .cond-head .ico { font-size: 15px; }
+  .cond-score {
+    margin-left: auto; font-size: 13.5px;
+    font-variant-numeric: tabular-nums; font-weight: 800;
+  }
+  .cond-note {
+    font-size: 11.5px; color: #9aa0a6; margin-top: 5px; line-height: 1.5;
+  }
 </style>
 </head>
 <body>
@@ -132,28 +313,45 @@
   <div id="stage">
     <video id="video" playsinline webkit-playsinline muted autoplay></video>
     <div id="overlay"><div id="rect"></div></div>
+    <div id="tapCatch"></div>
+
+    <div id="toast"></div>
+
+    <div id="fabs" hidden>
+      <button id="torchFab" class="fab" hidden title="Linterna">🔦</button>
+      <button id="stopFab" class="fab" title="Detener">✕</button>
+    </div>
 
     <div id="topbar">
-      <div id="status">Tap Start to scan</div>
-      <div id="logWrap"><pre id="log">ready.</pre></div>
+      <div id="status">Toca la pantalla para escanear</div>
     </div>
 
     <div id="panel">
+
+      <div id="profileCard">
+        <button id="profileToggle" type="button">
+          <span class="ico">👤</span>
+          <span class="ptitle">Perfil del paciente</span>
+          <span id="profileSummary">no configurado</span>
+          <span class="chev">▾</span>
+        </button>
+        <div id="profileBody">
+          <div class="tl-title" style="margin-top:6px">Condiciones de salud</div>
+          <div class="cond-grid" id="condGrid"></div>
+          <div class="profile-note">Guardado solo en este dispositivo · no es consejo médico</div>
+        </div>
+      </div>
+
       <div id="code">—</div>
       <div id="gs1"></div>
       <div id="product">
         <div class="name"></div>
         <div class="brand"></div>
         <div class="meta"></div>
+        <div id="analysis"></div>
+        <div id="ingredients"></div>
       </div>
-      <a id="lookupLink" href="#" target="_blank" rel="noopener noreferrer" hidden>View on Barcode Lookup ↗</a>
     </div>
-  </div>
-
-  <div id="bar">
-    <button id="start">Start</button>
-    <button id="stop" disabled>Stop</button>
-    <button id="torch" hidden>Torch</button>
   </div>
 
 <script>
@@ -170,28 +368,25 @@
   const nameEl    = productEl.querySelector('.name');
   const brandEl   = productEl.querySelector('.brand');
   const metaEl    = productEl.querySelector('.meta');
-  const lookupLinkEl = document.getElementById('lookupLink');
+  const ingredientsEl = document.getElementById('ingredients');
+  const analysisEl    = document.getElementById('analysis');
   const statusEl  = document.getElementById('status');
-  const logEl     = document.getElementById('log');
-  const startBtn  = document.getElementById('start');
-  const stopBtn   = document.getElementById('stop');
-  const torchBtn  = document.getElementById('torch');
+  const tapCatch  = document.getElementById('tapCatch');
+  const toastEl   = document.getElementById('toast');
+  const fabsEl    = document.getElementById('fabs');
+  const stopFab   = document.getElementById('stopFab');
+  const torchFab  = document.getElementById('torchFab');
 
-  // ------------------------------------------------------------- constants
-  // 1D barcode formats only — QR/2D support has been removed entirely.
+  // ------------------------------------------------------------- constantes
   const BARCODE_FORMATS = ['ean_13', 'ean_8', 'upc_a', 'upc_e',
                             'code_128', 'code_39', 'code_93', 'itf', 'codabar'];
 
-  // We crop just the viewfinder region out of the video at (near-)native
-  // resolution and decode that crop — not the whole downscaled frame. This
-  // is what makes "code is in the box but isn't detected" go away: the
-  // barcode becomes the dominant subject of a full-resolution image
-  // instead of a small blurry patch of a shrunk one.
+  const MIN_CODE_LENGTH = 8;
+
   const CROP_MAX_DIM  = 1400;
-  const CROP_PADDING  = 0.08; // extra margin around the viewfinder box
+  const CROP_PADDING  = 0.08;
 
   const OFF_BASE = 'https://world.openfoodfacts.org/api/v2/product/';
-  const BARCODE_LOOKUP_BASE = 'https://www.barcodelookup.com/';
   const CORS_PROXIES = [
     { name: 'corsproxy.io',  build: (u) => 'https://corsproxy.io/?url=' + encodeURIComponent(u) },
     { name: 'allorigins',    build: (u) => 'https://api.allorigins.win/raw?url=' + encodeURIComponent(u) },
@@ -204,52 +399,48 @@
   ];
 
   const GS1_PREFIXES = {
-    '000':'US/Canada','001':'US/Canada','002':'US/Canada','003':'US/Canada',
-    '004':'US/Canada','005':'US/Canada','006':'US/Canada','007':'US/Canada',
-    '008':'US/Canada','009':'US/Canada','010':'US/Canada','011':'US/Canada',
-    '012':'US/Canada','013':'US/Canada','014':'US/Canada','015':'US/Canada',
-    '016':'US/Canada','017':'US/Canada','018':'US/Canada','019':'US/Canada',
-    '020':'US/Canada (restricted)','029':'US/Canada (restricted)',
-    '030':'US (GS1 US)','036':'US (GS1 US)','037':'US (GS1 US)',
-    '038':'US (GS1 US)','039':'US (GS1 US)','040':'US (GS1 US)',
-    '050':'US (GS1 US)','060':'US (GS1 US)','070':'US (GS1 US)',
-    '080':'US (GS1 US)','090':'US (GS1 US)','100':'US (GS1 US)',
-    '110':'US (GS1 US)','120':'US (GS1 US)','130':'US (GS1 US)',
-    '200':'Restricted distribution',
-    '300':'France','310':'France','320':'France','330':'France','340':'France',
-    '350':'France','360':'France','370':'France','380':'Bulgaria',
-    '400':'Germany','410':'Germany','420':'Germany','430':'Germany','440':'Germany',
-    '450':'Japan','460':'Russia','470':'Kyrgyzstan','480':'Philippines','490':'Japan',
-    '500':'UK','509':'UK',
-    '520':'Greece','530':'Cyprus','540':'Belgium/Luxembourg',
-    '560':'Portugal','570':'Denmark','590':'Poland',
-    '600':'South Africa','610':'Mauritius','620':'Tanzania',
-    '640':'Finland','690':'China','693':'China','694':'China',
-    '700':'Norway','729':'Israel','740':'Guatemala',
-    '750':'Mexico','760':'Switzerland','770':'Colombia',
-    '775':'Peru','779':'Argentina','780':'Chile',
-    '789':'Brazil','790':'Brazil',
-    '800':'Italy','810':'Italy','820':'Italy','830':'Italy',
-    '840':'Spain','850':'Cuba','858':'Slovakia',
-    '860':'Serbia','869':'Turkey','870':'Netherlands',
-    '880':'South Korea','885':'Thailand','888':'Singapore',
+    '000':'EE.UU./Canadá','001':'EE.UU./Canadá','002':'EE.UU./Canadá','003':'EE.UU./Canadá',
+    '004':'EE.UU./Canadá','005':'EE.UU./Canadá','006':'EE.UU./Canadá','007':'EE.UU./Canadá',
+    '008':'EE.UU./Canadá','009':'EE.UU./Canadá','010':'EE.UU./Canadá','011':'EE.UU./Canadá',
+    '012':'EE.UU./Canadá','013':'EE.UU./Canadá','014':'EE.UU./Canadá','015':'EE.UU./Canadá',
+    '016':'EE.UU./Canadá','017':'EE.UU./Canadá','018':'EE.UU./Canadá','019':'EE.UU./Canadá',
+    '020':'EE.UU./Canadá (restringido)','029':'EE.UU./Canadá (restringido)',
+    '030':'EE.UU. (GS1 US)','036':'EE.UU. (GS1 US)','037':'EE.UU. (GS1 US)',
+    '038':'EE.UU. (GS1 US)','039':'EE.UU. (GS1 US)','040':'EE.UU. (GS1 US)',
+    '050':'EE.UU. (GS1 US)','060':'EE.UU. (GS1 US)','070':'EE.UU. (GS1 US)',
+    '080':'EE.UU. (GS1 US)','090':'EE.UU. (GS1 US)','100':'EE.UU. (GS1 US)',
+    '110':'EE.UU. (GS1 US)','120':'EE.UU. (GS1 US)','130':'EE.UU. (GS1 US)',
+    '200':'Distribución restringida',
+    '300':'Francia','310':'Francia','320':'Francia','330':'Francia','340':'Francia',
+    '350':'Francia','360':'Francia','370':'Francia','380':'Bulgaria',
+    '400':'Alemania','410':'Alemania','420':'Alemania','430':'Alemania','440':'Alemania',
+    '450':'Japón','460':'Rusia','470':'Kirguistán','480':'Filipinas','490':'Japón',
+    '500':'Reino Unido','509':'Reino Unido',
+    '520':'Grecia','530':'Chipre','540':'Bélgica/Luxemburgo',
+    '560':'Portugal','570':'Dinamarca','590':'Polonia',
+    '600':'Sudáfrica','610':'Mauricio','620':'Tanzania',
+    '640':'Finlandia','690':'China','693':'China','694':'China',
+    '700':'Noruega','729':'Israel','740':'Guatemala',
+    '750':'México','760':'Suiza','770':'Colombia',
+    '775':'Perú','779':'Argentina','780':'Chile',
+    '789':'Brasil','790':'Brasil',
+    '800':'Italia','810':'Italia','820':'Italia','830':'Italia',
+    '840':'España','850':'Cuba','858':'Eslovaquia',
+    '860':'Serbia','869':'Turquía','870':'Países Bajos',
+    '880':'Corea del Sur','885':'Tailandia','888':'Singapur',
     '890':'India','893':'Vietnam','899':'Indonesia',
     '900':'Austria','910':'Austria','920':'Austria',
-    '930':'Australia','940':'New Zealand','950':'Taiwan',
-    '955':'Malaysia','958':'Macau'
+    '930':'Australia','940':'Nueva Zelanda','950':'Taiwán',
+    '955':'Malasia','958':'Macao'
   };
 
   const DETECT_INTERVAL      = 100;
   const DEDUPE_MS            = 1500;
-  const LOG_MAX              = 5;
-  const DETECT_LOG_THROTTLE  = 500;
+  const TOAST_MS             = 3000;
 
-  // Cardinal rotations. 0deg every tick (fast path); one more angle is
-  // round-robined in each tick so a sideways or upside-down barcode is
-  // caught within a few tenths of a second.
   const EXTRA_ROTATIONS = [90, 180, 270];
 
-  // ---------------------------------------------------------------- state
+  // ---------------------------------------------------------------- estado
   let running         = false;
   let rafId           = 0;
   let rvfcHandle      = 0;
@@ -257,7 +448,7 @@
   let lastTick        = 0;
   let stream          = null;
   let nativeDetector  = null;
-  let zxingCore       = null; // { Lib, reader } once loaded and configured
+  let zxingCore       = null;
   let torchTrack      = null;
   let torchOn         = false;
   let rotCursor       = 0;
@@ -266,9 +457,9 @@
   let lastLookupCode  = '';
   let lookupId        = 0;
   let flashTimer      = 0;
-  let lastDetectLog   = 0;
+  let lastProductData = null;
+  let toastTimer      = 0;
 
-  // canvases used for the crop + rotation pipeline (created once)
   const cropCanvas = document.createElement('canvas');
   cropCanvas.style.display = 'none';
   document.body.appendChild(cropCanvas);
@@ -280,33 +471,42 @@
   const rotCtx = rotCanvas.getContext('2d', { willReadFrequently: true });
 
   // ---------------------------------------------------------------- log
-  const logLines = [];
-  function escapeHtml(s) {
-    return String(s).replace(/[&<>"']/g, (c) => ({
-      '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
-    }[c]));
-  }
   function log(msg, cls) {
-    const t = new Date().toLocaleTimeString('en-GB', { hour12: false });
-    const line = '[' + t + '] ' + msg;
-    logLines.push(cls ? '<span class="' + cls + '">' + escapeHtml(line) + '</span>' : escapeHtml(line));
-    while (logLines.length > LOG_MAX) logLines.shift();
-    logEl.innerHTML = logLines.join('\n');
-  }
-  function logThrottled(msg, cls) {
-    const now = Date.now();
-    if (now - lastDetectLog < DETECT_LOG_THROTTLE) return;
-    lastDetectLog = now;
-    log(msg, cls);
+    const tag = '[Escáner]';
+    if (cls === 'err')       console.error(tag, msg);
+    else if (cls === 'warn') console.warn(tag, msg);
+    else                     console.log(tag, msg);
   }
 
   function setStatus(t) { statusEl.textContent = t; }
+
+  function showToast(msg, ms) {
+    toastEl.textContent = msg;
+    toastEl.classList.add('on');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => toastEl.classList.remove('on'), ms || TOAST_MS);
+  }
+
+  function hideToast() {
+    clearTimeout(toastTimer);
+    toastEl.classList.remove('on');
+  }
+
+  function setRunning(isRunning) {
+    running = isRunning;
+    document.body.classList.toggle('running', isRunning);
+  }
 
   function clearProduct() {
     productEl.classList.remove('visible');
     nameEl.textContent = '';
     brandEl.textContent = '';
     metaEl.innerHTML = '';
+    ingredientsEl.textContent = '';
+    ingredientsEl.classList.remove('visible');
+    analysisEl.innerHTML = '';
+    analysisEl.classList.remove('visible');
+    lastProductData = null;
   }
 
   // ------------------------------------------------------------ GS1 parse
@@ -331,42 +531,42 @@
       full,
       format: code.length === 12 ? 'UPC-A' : 'EAN-13',
       prefix, manufacturer, productCode, checkDigit, valid,
-      country: country || 'Unknown / see GS1 prefix list'
+      country: country || 'Desconocido / ver lista de prefijos GS1'
     };
   }
 
   function showGS1(parsed) {
     if (!parsed) { gs1El.textContent = ''; return; }
     gs1El.innerHTML =
-      parsed.format + ' · ' + (parsed.valid ? 'check digit OK' : 'check digit FAILED') + '<br>' +
-      'Region: ' + parsed.country +
-      ' · Mfr: ' + parsed.manufacturer +
-      ' · Product: ' + parsed.productCode;
+      parsed.format + ' · ' + (parsed.valid ? 'dígito de control OK' : 'dígito de control FALLIDO') + '<br>' +
+      'Región: ' + parsed.country +
+      ' · Fabricante: ' + parsed.manufacturer +
+      ' · Producto: ' + parsed.productCode;
   }
 
   // ------------------------------------------------------ Open Food Facts
   async function fetchWithProxies(url) {
-    log('OFF: direct fetch…');
+    log('OFF: consulta directa…');
     try {
       const r = await fetch(url, { headers: { 'User-Agent': 'BarcodeScanner/1.0' }, mode: 'cors' });
-      if (r.ok) { log('OFF: direct OK', 'ok'); return r; }
-      log('OFF: direct HTTP ' + r.status, 'warn');
+      if (r.ok) { log('OFF: directa OK', 'ok'); return r; }
+      log('OFF: directa HTTP ' + r.status, 'warn');
     } catch (e) {
-      const m = e && e.message ? e.message : 'CORS/network';
-      log('OFF: direct blocked — ' + m, 'warn');
+      const m = e && e.message ? e.message : 'CORS/red';
+      log('OFF: directa bloqueada — ' + m, 'warn');
     }
     for (const p of CORS_PROXIES) {
-      log('OFF: via ' + p.name + '…');
+      log('OFF: vía ' + p.name + '…');
       try {
         const r = await fetch(p.build(url));
         if (r.ok) { log('OFF: ' + p.name + ' OK', 'ok'); return r; }
         log('OFF: ' + p.name + ' HTTP ' + r.status, 'warn');
       } catch (e) {
-        const m = e && e.message ? e.message : 'failed';
+        const m = e && e.message ? e.message : 'fallo';
         log('OFF: ' + p.name + ' — ' + m, 'warn');
       }
     }
-    throw new Error('All fetch attempts failed (CORS or network)');
+    throw new Error('Todas las consultas han fallado (CORS o red)');
   }
 
   function gradeClass(grade) {
@@ -377,7 +577,9 @@
 
   function renderProduct(p) {
     if (!p) { clearProduct(); return; }
-    nameEl.textContent = p.product_name || '(no name)';
+    lastProductData = p;
+
+    nameEl.textContent = p.product_name || '(sin nombre)';
     brandEl.textContent = [p.brands, p.quantity].filter(Boolean).join(' · ');
     metaEl.innerHTML = '';
     if (p.nutrition_grades) {
@@ -392,7 +594,17 @@
       b.textContent = 'NOVA ' + p.nova_group;
       metaEl.appendChild(b);
     }
+
+    if (p.ingredients_text) {
+      ingredientsEl.innerHTML = '<b>Ingredientes</b>' + escapeHtml(p.ingredients_text);
+      ingredientsEl.classList.add('visible');
+    } else {
+      ingredientsEl.textContent = '';
+      ingredientsEl.classList.remove('visible');
+    }
+
     productEl.classList.add('visible');
+    renderAnalysis();
   }
 
   async function lookupOFF(barcode) {
@@ -403,12 +615,13 @@
 
     const id = ++lookupId;
     clearProduct();
-    setStatus('Looking up product…');
-    log('OFF lookup: ' + digits);
+    setStatus('Analizando producto…');
+    log('Consulta OFF: ' + digits);
 
     try {
       const url = OFF_BASE + encodeURIComponent(digits) +
-        '?fields=product_name,brands,quantity,nutrition_grades,nova_group';
+        '?fields=product_name,brands,quantity,nutrition_grades,nova_group,' +
+        'nutriments,ingredients_text,allergens_tags,additives_tags,categories_tags';
       const res = await fetchWithProxies(url);
       if (id !== lookupId) return;
       if (!res.ok) {
@@ -419,26 +632,556 @@
       const data = await res.json();
       if (id !== lookupId) return;
       if (data.status !== 1 || !data.product) {
-        log('OFF: not found', 'warn');
-        setStatus('Not found in Open Food Facts');
+        log('OFF: no encontrado', 'warn');
+        setStatus('No encontrado en Open Food Facts');
         return;
       }
       renderProduct(data.product);
-      log('OFF: found "' + (data.product.product_name || '') + '"', 'ok');
-      setStatus('Found in Open Food Facts');
+      log('OFF: encontrado "' + (data.product.product_name || '') + '"', 'ok');
+      setStatus('Producto encontrado');
     } catch (err) {
       if (id !== lookupId) return;
       const m = err && err.message ? err.message : String(err);
       log('OFF: ' + m, 'err');
-      setStatus('OFF lookup failed');
+      setStatus('Error al consultar OFF');
     }
   }
 
-  // --------------------------------------------------- viewfinder region
-  // Defines BOTH what's drawn on screen and what gets cropped for decoding,
-  // so "in the box" and "what the decoder sees" are the same thing. It's
-  // deliberately generous (not a tight rectangle) so a tilted or
-  // upside-down code anywhere in it still gets picked up.
+  // ============================================================
+  // ==============  PERFIL DEL PACIENTE + PUNTUACIÓN  ==========
+  // ============================================================
+
+  const PROFILE_KEY = 'barcodeScanner.paciente.v1';
+
+  // Condiciones de salud. Los alérgenos usan un icono distinto para
+  // reconocerlos rápidamente en el perfil.
+  const CONDITIONS = [
+    { id: 'type1diabetes', label: 'Diabetes tipo 1',            icon: '💉' },
+    { id: 'diabetes',      label: 'Diabetes tipo 2',            icon: '🩸' },
+    { id: 'prediabetes',   label: 'Prediabetes',                icon: '🩺' },
+    { id: 'hbp',           label: 'Hipertensión',               icon: '❤️' },
+    { id: 'heartfailure',  label: 'Insuficiencia cardíaca',     icon: '💔' },
+    { id: 'cholesterol',   label: 'Colesterol alto',            icon: '🫀' },
+    { id: 'ckd',           label: 'Enfermedad renal',           icon: '🫘' },
+    { id: 'liver',         label: 'Enfermedad hepática',        icon: '🫁' },
+    { id: 'obesity',       label: 'Control de peso',            icon: '⚖️' },
+    { id: 'gout',          label: 'Gota',                       icon: '🦴' },
+    { id: 'ibs',           label: 'SII / Intestino irritable',  icon: '🌀' },
+    { id: 'gerd',          label: 'Reflujo (ERGE)',             icon: '🔥' },
+    { id: 'pcos',          label: 'SOP / PCOS',                 icon: '🌸' },
+    { id: 'anemia',        label: 'Anemia ferropénica',         icon: '🩹' },
+    { id: 'osteoporosis',  label: 'Osteoporosis',               icon: '🦴' },
+    { id: 'pregnancy',     label: 'Embarazo',                   icon: '🤰' },
+    // Alérgenos e intolerancias
+    { id: 'celiac',        label: 'Celiaquía (gluten)',         icon: '🌾' },
+    { id: 'lactose',       label: 'Intolerancia a la lactosa',  icon: '🥛' },
+    { id: 'nutallergy',    label: 'Alergia a frutos secos',     icon: '🥜' },
+    { id: 'eggallergy',    label: 'Alergia al huevo',           icon: '🥚' },
+    { id: 'soyallergy',    label: 'Alergia a la soja',          icon: '🫛' },
+    { id: 'shellfish',     label: 'Alergia al marisco',         icon: '🦐' },
+    { id: 'sesame',        label: 'Alergia al sésamo',          icon: '🫘' },
+    { id: 'sulphites',     label: 'Sensibilidad a sulfitos',    icon: '🍷' }
+  ];
+
+  const NUTRIENT_LABELS = {
+    energy: 'Calorías', fat: 'Grasas', saturated: 'Grasas saturadas',
+    sugars: 'Azúcares', salt: 'Sal', carbohydrates: 'Carbohidratos',
+    fiber: 'Fibra', proteins: 'Proteínas',
+    iron: 'Hierro', calcium: 'Calcio'
+  };
+
+  const TL = {
+    fat:       { green: 3.0, red: 17.5, label: 'Grasas' },
+    saturated: { green: 1.5, red: 5.0,  label: 'Grasas saturadas' },
+    sugars:    { green: 5.0, red: 22.5, label: 'Azúcares' },
+    salt:      { green: 0.3, red: 1.5,  label: 'Sal' }
+  };
+
+  // Parámetros revisados por condición.
+  // Nota: `allergen` se compara contra allergens_tags de Open Food Facts.
+  const CONDITION_RULES = {
+    // Diabetes tipo 1: azúcares y carbohidratos son lo principal; la fibra
+    // ralentiza la absorción de glucosa.
+    type1diabetes: { nutrients: { sugars: 3, carbohydrates: 2, fiber: 2 } },
+
+    // Diabetes tipo 2: azúcares y carbohidratos; fibra muy beneficiosa.
+    diabetes:      { nutrients: { sugars: 3, carbohydrates: 1.5, fiber: 2, energy: 1 } },
+
+    // Prediabetes: mismo foco, con algo más de peso a la carga total.
+    prediabetes:   { nutrients: { sugars: 3, carbohydrates: 2, fiber: 2, energy: 1 } },
+
+    // Hipertensión: sodio dominante + grasa saturada cardiovascular.
+    hbp:           { nutrients: { salt: 4, saturated: 1.5 } },
+
+    // Insuficiencia cardíaca: restricción de sodio aún más crítica y
+    // control de líquidos/calorías.
+    heartfailure:  { nutrients: { salt: 4.5, energy: 1, saturated: 1 } },
+
+    // Colesterol alto: grasa saturada principal + fibra soluble.
+    cholesterol:   { nutrients: { saturated: 3.5, fat: 1, fiber: 2 } },
+
+    // Enfermedad renal: sodio + proteínas + fósforo/potasio (no
+    // disponibles en OFF; aproximamos con sodio, proteínas y saturadas).
+    ckd:           { nutrients: { salt: 4, proteins: 2, saturated: 1 } },
+
+    // Enfermedad hepática: sodio, azúcares y grasa saturada.
+    liver:         { nutrients: { salt: 3, sugars: 2, saturated: 2 } },
+
+    // Control de peso: densidad energética primero, azúcares y saturadas.
+    obesity:       { nutrients: { energy: 3, sugars: 2, saturated: 1.5, fiber: 2 } },
+
+    // Gota: azúcares (fructosa) y proteínas moderadas.
+    gout:          { nutrients: { sugars: 2.5, proteins: 1.5, energy: 1 } },
+
+    // SII: grasa y azúcares desencadenantes frecuentes.
+    ibs:           { nutrients: { fat: 2, sugars: 1.5 } },
+
+    // Reflujo (ERGE): grasa y azúcares empeoran síntomas; comidas copiosas.
+    gerd:          { nutrients: { fat: 2, saturated: 1.5, sugars: 1 } },
+
+    // SOP / PCOS: azúcares y carbohidratos refinados; fibra ayuda.
+    pcos:          { nutrients: { sugars: 3, carbohydrates: 2, fiber: 2 } },
+
+    // Anemia ferropénica: el hierro es beneficioso (no perjudicial).
+    anemia:        { nutrients: { iron: 4 } },
+
+    // Osteoporosis: el calcio es beneficioso.
+    osteoporosis:  { nutrients: { calcium: 4 } },
+
+    // Embarazo: patrón dietético saludable general.
+    pregnancy:     { nutrients: { sugars: 2, saturated: 1.5, proteins: 1.5 } },
+
+    // Alérgenos e intolerancias. Se comparan contra allergens_tags.
+    celiac:        { allergen: 'gluten',      allergenName: 'gluten' },
+    lactose:       { allergen: 'milk',        allergenName: 'lactosa' },
+    nutallergy:    { allergen: 'nuts',        allergenName: 'frutos secos' },
+    eggallergy:    { allergen: 'egg',         allergenName: 'huevo' },
+    soyallergy:    { allergen: 'soy',         allergenName: 'soja' },
+    shellfish:     { allergen: 'crustacean',  allergenName: 'marisco' },
+    sesame:        { allergen: 'sesame',      allergenName: 'sésamo' },
+    sulphites:     { allergen: 'sulphite',    allergenName: 'sulfitos' }
+  };
+
+  const DEFAULT_PROFILE = { conditions: {} };
+
+  function loadProfile() {
+    try {
+      const raw = localStorage.getItem(PROFILE_KEY);
+      if (!raw) return JSON.parse(JSON.stringify(DEFAULT_PROFILE));
+      const p = JSON.parse(raw);
+      return {
+        conditions: (p && p.conditions && typeof p.conditions === 'object') ? p.conditions : {}
+      };
+    } catch (_) {
+      return JSON.parse(JSON.stringify(DEFAULT_PROFILE));
+    }
+  }
+
+  function saveProfile() {
+    try { localStorage.setItem(PROFILE_KEY, JSON.stringify(profile)); }
+    catch (e) { log('No se pudo guardar el perfil: ' + (e.message || e), 'warn'); }
+  }
+
+  let profile = loadProfile();
+
+  const profileCard    = document.getElementById('profileCard');
+  const profileToggle  = document.getElementById('profileToggle');
+  const profileSummary = document.getElementById('profileSummary');
+  const condGrid       = document.getElementById('condGrid');
+
+  function openProfile()  { profileCard.classList.add('open'); }
+  function closeProfile() { profileCard.classList.remove('open'); }
+  function isProfileOpen(){ return profileCard.classList.contains('open'); }
+
+  function updateProfileSummary() {
+    const ids = Object.keys(profile.conditions).filter(k => profile.conditions[k]);
+    if (!ids.length) { profileSummary.textContent = 'no configurado'; return; }
+    profileSummary.textContent = ids.map(id => {
+      const c = CONDITIONS.find(x => x.id === id);
+      return c ? c.icon : '';
+    }).join(' ') + ' · ' + ids.length + ' activas';
+  }
+
+  function buildConditionGrid() {
+    condGrid.innerHTML = '';
+    for (const c of CONDITIONS) {
+      const checked = !!profile.conditions[c.id];
+      const lab = document.createElement('label');
+      lab.className = 'cond' + (checked ? ' on' : '');
+      lab.dataset.id = c.id;
+      lab.innerHTML =
+        '<input type="checkbox"' + (checked ? ' checked' : '') + '>' +
+        '<span class="tick">✓</span>' +
+        '<span class="ico">' + c.icon + '</span>' +
+        '<span class="lbl">' + c.label + '</span>';
+      const cb = lab.querySelector('input');
+      cb.addEventListener('change', () => {
+        profile.conditions[c.id] = cb.checked;
+        lab.classList.toggle('on', cb.checked);
+        saveProfile();
+        updateProfileSummary();
+        renderAnalysis();
+      });
+      condGrid.appendChild(lab);
+    }
+  }
+
+  profileToggle.addEventListener('click', (e) => {
+    e.stopPropagation();
+    if (isProfileOpen()) closeProfile();
+    else openProfile();
+  });
+
+  buildConditionGrid();
+  updateProfileSummary();
+
+  // ------------------------- extracción de nutrientes -------------------------
+
+  function pick() {
+    for (let i = 0; i < arguments.length; i++) {
+      if (arguments[i] != null) return arguments[i];
+    }
+    return null;
+  }
+
+  function numOr(v) {
+    if (v === '' || v == null) return null;
+    const n = Number(v);
+    return isFinite(n) ? n : null;
+  }
+
+  function extractNutrients(p) {
+    const nu = (p && p.nutriments) || {};
+    const sodium = numOr(nu.sodium_100g);
+    const salt   = pick(numOr(nu.salt_100g), sodium != null ? sodium * 2.5 : null);
+    const kcal   = numOr(nu['energy-kcal_100g']);
+    const kj     = numOr(nu.energy_100g);
+    const energy = pick(kcal, kj != null ? kj / 4.184 : null);
+
+    // Micronutrientes: Open Food Facts los guarda en gramos → mg por 100 g.
+    const ironG    = numOr(nu.iron_100g);
+    const calciumG = numOr(nu.calcium_100g);
+
+    return {
+      energy:        energy,
+      fat:           numOr(nu.fat_100g),
+      saturated:     numOr(nu['saturated-fat_100g']),
+      carbohydrates: numOr(nu.carbohydrates_100g),
+      sugars:        numOr(nu.sugars_100g),
+      fiber:         numOr(nu.fiber_100g),
+      proteins:      numOr(nu.proteins_100g),
+      salt:          salt,
+      iron:          ironG    != null ? ironG    * 1000 : null,
+      calcium:       calciumG != null ? calciumG * 1000 : null
+    };
+  }
+
+  // ------------------------- primitivas de puntuación -------------------------
+
+  function bandScore(value, green, red) {
+    if (value == null) return null;
+    if (value <= 0) return 10;
+    if (value <= green) return 10 - 2 * (value / green);
+    if (value <= red)   return 8 - 4 * ((value - green) / (red - green));
+    const over = Math.min(1, (value - red) / Math.max(red, 0.0001));
+    return Math.max(1, 4 - 3 * over);
+  }
+
+  function positiveScore(value, mid, high) {
+    if (value == null) return null;
+    if (value >= high) return 10;
+    if (value >= mid)  return 7 + 3 * ((value - mid) / (high - mid));
+    return 1 + 6 * (value / mid);
+  }
+
+  function scoreNutrient(key, n, condId) {
+    const v = n[key];
+    if (v == null) return null;
+    switch (key) {
+      case 'fat':           return bandScore(v, 3.0, 17.5);
+      case 'saturated':     return bandScore(v, 1.5, 5.0);
+      case 'sugars':        return bandScore(v, 5.0, 22.5);
+      case 'salt':          return bandScore(v, 0.3, 1.5);
+      case 'carbohydrates': return bandScore(v, 15, 60);
+      case 'energy':        return bandScore(v, 150, 400);
+      case 'fiber':         return positiveScore(v, 3, 6);
+      case 'iron':          return positiveScore(v, 1.5, 4);     // mg / 100 g
+      case 'calcium':       return positiveScore(v, 120, 300);   // mg / 100 g
+      case 'proteins':
+        if (condId === 'ckd') return bandScore(v, 6, 15);
+        return positiveScore(v, 8, 20);
+    }
+    return null;
+  }
+
+  function tlLevel(key, value) {
+    if (value == null) return null;
+    const t = TL[key];
+    if (value <= t.green) return 'green';
+    if (value <= t.red)   return 'amber';
+    return 'red';
+  }
+
+  function fmtNutrient(key, val) {
+    if (val == null) return '—';
+    if (key === 'energy') return Math.round(val) + ' kcal';
+    if (key === 'iron' || key === 'calcium') return Math.round(val) + ' mg';
+    const dec = (key === 'salt' || key === 'saturated') ? 2 : 1;
+    return val.toFixed(dec) + ' g';
+  }
+
+  function scoreColor(score) {
+    if (score == null) return '#6b6b70';
+    if (score >= 7.5) return '#22c55e';
+    if (score >= 5)   return '#fbbf24';
+    if (score >= 3)   return '#fb923c';
+    return '#ef4444';
+  }
+
+  function scoreWord(score) {
+    if (score == null) return 'Datos insuficientes';
+    if (score >= 7.5) return 'Buena elección';
+    if (score >= 5)   return 'Aceptable con moderación';
+    if (score >= 3)   return 'Limitar consumo';
+    return 'Mejor evitar';
+  }
+
+  function generalScore(n) {
+    const parts = [
+      ['fat', 1], ['saturated', 2], ['sugars', 2], ['salt', 2],
+      ['fiber', 1.5], ['proteins', 1]
+    ];
+    let sum = 0, wsum = 0;
+    for (const [k, w] of parts) {
+      const s = scoreNutrient(k, n);
+      if (s == null) continue;
+      sum += s * w; wsum += w;
+    }
+    return wsum ? sum / wsum : null;
+  }
+
+  function scoreCondition(condId, n, allergens) {
+    const rule = CONDITION_RULES[condId];
+    if (!rule) return { score: null, alerts: [], good: [] };
+
+    if (rule.allergen) {
+      const has = (allergens || []).some(a =>
+        String(a).toLowerCase().indexOf(rule.allergen) !== -1);
+      return {
+        score: has ? 1 : 10,
+        alerts: has ? ['Contiene ' + rule.allergenName + ' — evitar'] : [],
+        good: has ? [] : ['Sin ' + rule.allergenName + ' declarado'],
+        isAllergen: true,
+        allergenPresent: has,
+        allergenName: rule.allergenName
+      };
+    }
+
+    let sum = 0, wsum = 0;
+    const alerts = [], good = [];
+    for (const key in rule.nutrients) {
+      if (!Object.prototype.hasOwnProperty.call(rule.nutrients, key)) continue;
+      const w = rule.nutrients[key];
+      const val = n[key];
+      const s = scoreNutrient(key, n, condId);
+      if (s == null || val == null) continue;
+      sum += s * w; wsum += w;
+      if (s <= 4) {
+        alerts.push(NUTRIENT_LABELS[key] + ' ' + fmtNutrient(key, val) +
+                    ' · ' + (s <= 2 ? 'muy alto' : 'alto'));
+      } else if (s >= 8.5 && (key === 'fiber' || key === 'proteins' ||
+                              key === 'iron'  || key === 'calcium')) {
+        good.push('Buena cantidad de ' + NUTRIENT_LABELS[key].toLowerCase());
+      }
+    }
+    return { score: wsum ? sum / wsum : null, alerts, good };
+  }
+
+  // --------------------------- render del análisis ---------------------------
+
+  function renderAnalysis() {
+    if (!lastProductData) {
+      analysisEl.innerHTML = '';
+      analysisEl.classList.remove('visible');
+      return;
+    }
+
+    const n = extractNutrients(lastProductData);
+    const allergens = lastProductData.allergens_tags || [];
+    const activeConds = CONDITIONS.map(c => c.id).filter(id => !!profile.conditions[id]);
+
+    const condResults = activeConds.map(id => {
+      const r = scoreCondition(id, n, allergens) || { score: null, alerts: [], good: [] };
+      return {
+        id: id,
+        score: r.score,
+        alerts: r.alerts || [],
+        good: r.good || [],
+        isAllergen: !!r.isAllergen,
+        allergenPresent: !!r.allergenPresent,
+        allergenName: r.allergenName || ''
+      };
+    });
+
+    const parts = [];
+
+    // ---------- BANNER DE ALÉRGENO (lo primero y más visible) ----------
+    const allergenHits = condResults.filter(r => r.isAllergen && r.allergenPresent);
+    if (allergenHits.length) {
+      const items = allergenHits.map(r => {
+        const cdef = CONDITIONS.find(x => x.id === r.id) || { label: r.id, icon: '' };
+        return '<div class="aw-item"><span class="ico">' + cdef.icon + '</span>' +
+               cdef.label + ' — contiene ' + r.allergenName + '</div>';
+      }).join('');
+      parts.push(
+        '<div class="allergen-warning">' +
+          '<div class="aw-icon">⚠️</div>' +
+          '<div class="aw-body">' +
+            '<div class="aw-title">Alérgeno detectado</div>' +
+            items +
+          '</div>' +
+        '</div>'
+      );
+    }
+
+    // ---------- PUNTUACIÓN GLOBAL ----------
+    let overall = null;
+    let overallLabel = '';
+    if (activeConds.length) {
+      // Los alérgenos con presencia detectada se excluyen del promedio
+      // porque ya se muestran como aviso aparte (evitan distorsión).
+      const valid = condResults.filter(r => r.score != null && !(r.isAllergen && r.allergenPresent));
+      if (valid.length) {
+        overall = valid.reduce((s, r) => s + r.score, 0) / valid.length;
+        overallLabel = 'Puntuación para tu perfil';
+      }
+    } else {
+      overall = generalScore(n);
+      overallLabel = 'Puntuación general';
+    }
+
+    if (overall != null) {
+      const col = scoreColor(overall);
+      parts.push(
+        '<div class="score-wrap">' +
+          '<div class="score-circle" style="--c:' + col + '">' + overall.toFixed(1) + '</div>' +
+          '<div class="score-meta">' +
+            '<div class="score-title" style="color:' + col + '">' + scoreWord(overall) + '</div>' +
+            '<div class="score-sub">' + overallLabel + ' · valores por 100 g</div>' +
+          '</div>' +
+        '</div>'
+      );
+    }
+
+    // ---------- SEMÁFORO ----------
+    const tlRows = [];
+    for (const k of ['sugars', 'salt', 'saturated', 'fat']) {
+      if (n[k] == null) continue;
+      const lvl = tlLevel(k, n[k]);
+      const c = lvl === 'green' ? '#22c55e'
+              : lvl === 'amber' ? '#fbbf24'
+              : lvl === 'red'   ? '#ef4444'
+              : '#3a3a40';
+      const pct = Math.min(100, (n[k] / (TL[k].red * 1.6)) * 100);
+      tlRows.push(
+        '<div class="tl-row">' +
+          '<span class="tl-dot" style="background:' + c + '"></span>' +
+          '<span class="tl-name">' + TL[k].label + '</span>' +
+          '<span class="tl-bar"><span class="tl-fill" style="width:' + pct + '%;background:' + c + '"></span></span>' +
+          '<span class="tl-val">' + fmtNutrient(k, n[k]) + '</span>' +
+        '</div>'
+      );
+    }
+    if (tlRows.length) {
+      parts.push('<div class="tl-title">Semáforo nutricional</div>' + tlRows.join(''));
+    }
+
+    // ---------- BENEFICIOSOS ----------
+    const posRows = [];
+    const posKeys = [
+      ['fiber',    8],
+      ['proteins', 25],
+      ['iron',     6],     // mg
+      ['calcium',  400]    // mg
+    ];
+    for (const [k, maxVal] of posKeys) {
+      if (n[k] == null) continue;
+      const s = scoreNutrient(k, n);
+      const c = scoreColor(s);
+      const pct = Math.min(100, (n[k] / maxVal) * 100);
+      posRows.push(
+        '<div class="tl-row">' +
+          '<span class="tl-dot" style="background:' + c + '"></span>' +
+          '<span class="tl-name">' + NUTRIENT_LABELS[k] + '</span>' +
+          '<span class="tl-bar"><span class="tl-fill" style="width:' + pct + '%;background:' + c + '"></span></span>' +
+          '<span class="tl-val">' + fmtNutrient(k, n[k]) + '</span>' +
+        '</div>'
+      );
+    }
+    if (posRows.length) {
+      parts.push('<div class="tl-title">Beneficiosos</div>' + posRows.join(''));
+    }
+
+    // ---------- TARJETAS POR CONDICIÓN ----------
+    if (activeConds.length) {
+      const cards = [];
+      for (const r of condResults) {
+        // Los alérgenos con presencia ya se muestran en el banner rojo.
+        if (r.isAllergen && r.allergenPresent) continue;
+
+        const cdef = CONDITIONS.find(x => x.id === r.id) || { label: r.id, icon: '' };
+        const s = r.score;
+        const hasAlerts = r.alerts && r.alerts.length > 0;
+        const hasGood   = r.good && r.good.length > 0;
+        if (s == null && !hasAlerts && !hasGood) continue;
+
+        const cls = s == null ? '' : s >= 7.5 ? 'good' : s >= 5 ? 'warn' : 'bad';
+        const notes = [];
+        if (hasAlerts) notes.push('⚠ ' + r.alerts.join(' · '));
+        else if (s != null && s >= 7.5) notes.push('✓ Sin problemas importantes');
+        if (hasGood) notes.push('✓ ' + r.good.join(' · '));
+
+        cards.push(
+          '<div class="cond-card ' + cls + '">' +
+            '<div class="cond-head">' +
+              '<span class="ico">' + cdef.icon + '</span>' +
+              '<span>' + cdef.label + '</span>' +
+              '<span class="cond-score" style="color:' + scoreColor(s) + '">' +
+                (s == null ? '—' : s.toFixed(1) + '/10') +
+              '</span>' +
+            '</div>' +
+            (notes.length ? '<div class="cond-note">' + notes.join('<br>') + '</div>' : '') +
+          '</div>'
+        );
+      }
+      if (cards.length) {
+        parts.push(
+          '<div class="tl-title">Para tus condiciones</div>' +
+          '<div class="cond-list">' + cards.join('') + '</div>'
+        );
+      }
+    } else if (overall != null) {
+      parts.push(
+        '<div class="profile-note" style="margin-top:14px">' +
+        'Añade condiciones de salud en tu perfil para una puntuación personalizada.' +
+        '</div>'
+      );
+    }
+
+    if (parts.length) {
+      parts.push('<div class="profile-note">Solo orientativo — no es consejo médico.</div>');
+      analysisEl.innerHTML = parts.join('');
+      analysisEl.classList.add('visible');
+    } else {
+      analysisEl.innerHTML = '';
+      analysisEl.classList.remove('visible');
+    }
+  }
+
+  // ============================================================
+  // ===================  FIN PERFIL + PUNTUACIÓN  ==============
+  // ============================================================
+
   function getRegion(vw, vh) {
     return { x: 0.06, y: 0.18, w: 0.88, h: 0.64 };
   }
@@ -470,12 +1213,16 @@
     flashTimer = setTimeout(() => rectEl.classList.remove('hit'), 450);
   }
 
-  // ---------------------------------------------------------- show value
   function show(text) {
     const now = Date.now();
     if (text === lastText && now - lastAt < DEDUPE_MS) return;
     lastText = text;
     lastAt = now;
+
+    if (typeof text !== 'string' || text.length < MIN_CODE_LENGTH) {
+      log('Código demasiado corto, ignorado (' + text + ')', 'warn');
+      return;
+    }
 
     codeEl.textContent = text;
     codeEl.classList.add('hit');
@@ -485,29 +1232,20 @@
     showGS1(parsed);
     if (navigator.vibrate) navigator.vibrate(35);
 
-    log('DECODED: ' + text.substring(0, 40) + (text.length > 40 ? '…' : ''), 'ok');
+    log('DECODIFICADO: ' + text.substring(0, 40) + (text.length > 40 ? '…' : ''), 'ok');
 
     if (parsed) lookupOFF(text);
     else { clearProduct(); lastLookupCode = ''; }
 
-    // Every hit here is a genuine 1D barcode (QR support was removed), so
-    // always reveal the Barcode Lookup link and stop the camera — the user
-    // has what they came for and can browse straight to it, or tap Start
-    // again to scan another item.
-    const digits = text.replace(/\D/g, '');
-    const query = digits.length >= 6 ? digits : text;
-    lookupLinkEl.href = BARCODE_LOOKUP_BASE + encodeURIComponent(query);
-    lookupLinkEl.hidden = false;
-    if (running) stop('Barcode detected — tap Start to scan again');
+    if (running) stop('Código detectado');
   }
 
-  // ------------------------------------------------------- script loading
   function loadScript(src) {
     return new Promise((resolve, reject) => {
       const s = document.createElement('script');
       s.src = src; s.async = true;
       s.onload = () => resolve();
-      s.onerror = () => { s.remove(); reject(new Error('Failed to load ' + src)); };
+      s.onerror = () => { s.remove(); reject(new Error('No se pudo cargar ' + src)); };
       document.head.appendChild(s);
     });
   }
@@ -517,19 +1255,14 @@
     let lastErr;
     for (const url of ZXING_URLS) {
       try {
-        log('ZXing: loading…');
+        log('ZXing: cargando…');
         await loadScript(url);
-        if (window.ZXing) { log('ZXing: loaded', 'ok'); return window.ZXing; }
-      } catch (e) { lastErr = e; log('ZXing: load failed', 'warn'); }
+        if (window.ZXing) { log('ZXing: cargado', 'ok'); return window.ZXing; }
+      } catch (e) { lastErr = e; log('ZXing: fallo al cargar', 'warn'); }
     }
-    throw lastErr || new Error('ZXing could not be loaded');
+    throw lastErr || new Error('No se pudo cargar ZXing');
   }
 
-  // Builds a MultiFormatReader configured for 1D barcodes only, using the
-  // library's own low-level primitives (BinaryBitmap + HybridBinarizer +
-  // HTMLCanvasElementLuminanceSource) rather than a convenience wrapper —
-  // this is what actually exists and works in this ZXing build, verified
-  // directly against the shipped package.
   function setupZXingCore(ZX) {
     const hints = new Map();
     hints.set(ZX.DecodeHintType.TRY_HARDER, true);
@@ -541,7 +1274,7 @@
     hints.set(ZX.DecodeHintType.POSSIBLE_FORMATS, formats);
     const reader = new ZX.MultiFormatReader();
     reader.setHints(hints);
-    log('ZXing ready (' + formats.length + ' formats)', 'ok');
+    log('ZXing listo (' + formats.length + ' formatos)', 'ok');
     return { Lib: ZX, reader };
   }
 
@@ -549,29 +1282,24 @@
     const src = new zxingCore.Lib.HTMLCanvasElementLuminanceSource(canvas);
     const binarizer = new zxingCore.Lib.HybridBinarizer(src);
     const bitmap = new zxingCore.Lib.BinaryBitmap(binarizer);
-    return zxingCore.reader.decodeWithState(bitmap); // throws if nothing found
+    return zxingCore.reader.decodeWithState(bitmap);
   }
 
-  // ------------------------------------------------ camera acquisition
-  // Try progressively more permissive constraint sets. Resolution is
-  // pushed high (1920x1080 ideal) because we crop a small region out of
-  // the frame for decoding instead of shrinking the whole frame — more
-  // native pixels means more pixels on the barcode.
   async function acquireCamera() {
     const attempts = [
-      { name: '1920x1080 env',
+      { name: '1920x1080 trasera',
         v: { facingMode: { ideal: 'environment' },
              width:  { ideal: 1920 }, height: { ideal: 1080 },
              frameRate: { ideal: 30, max: 30 } } },
-      { name: '1280x720 env',
+      { name: '1280x720 trasera',
         v: { facingMode: { ideal: 'environment' },
              width:  { ideal: 1280 }, height: { ideal: 720 },
              frameRate: { ideal: 30, max: 30 } } },
-      { name: '1280x720 any',
+      { name: '1280x720 cualquiera',
         v: { width:  { ideal: 1280 }, height: { ideal: 720 } } },
-      { name: '640x480 any',
+      { name: '640x480 cualquiera',
         v: { width: { ideal: 640 }, height: { ideal: 480 } } },
-      { name: 'default', v: true }
+      { name: 'por defecto', v: true }
     ];
 
     let lastErr;
@@ -580,19 +1308,17 @@
         const s = await navigator.mediaDevices.getUserMedia({ audio: false, video: a.v });
         const track = s.getVideoTracks()[0];
         const st = (track && track.getSettings) ? track.getSettings() : {};
-        log('Camera ' + a.name + ' → ' + (st.width || '?') + '×' + (st.height || '?') +
+        log('Cámara ' + a.name + ' → ' + (st.width || '?') + '×' + (st.height || '?') +
             (st.frameRate ? ' @' + Math.round(st.frameRate) : ''), 'ok');
         return s;
       } catch (e) {
         lastErr = e;
-        log('Camera ' + a.name + ' failed: ' + (e.name || e.message || 'error'), 'warn');
+        log('Cámara ' + a.name + ' falló: ' + (e.name || e.message || 'error'), 'warn');
       }
     }
-    throw lastErr || new Error('No camera available');
+    throw lastErr || new Error('No hay cámara disponible');
   }
 
-  // Best-effort continuous autofocus. Unsupported on iOS Safari (WebKit
-  // doesn't expose focusMode) — this simply does nothing there.
   async function tryEnableContinuousFocus() {
     const track = stream && stream.getVideoTracks()[0];
     if (!track || typeof track.getCapabilities !== 'function') return;
@@ -601,27 +1327,25 @@
     if (caps.focusMode && caps.focusMode.indexOf('continuous') !== -1) {
       try {
         await track.applyConstraints({ advanced: [{ focusMode: 'continuous' }] });
-        log('Continuous autofocus requested', 'ok');
+        log('Autofoco continuo solicitado', 'ok');
       } catch (e) {
-        log('Focus constraint failed: ' + (e.message || e), 'warn');
+        log('Restricción de foco falló: ' + (e.message || e), 'warn');
       }
     }
   }
 
-  // Torch is not supported on iOS Safari — the button stays hidden there
-  // (feature-detected, no UA sniffing) rather than showing a dead control.
   function setupTorch() {
     torchTrack = null;
     torchOn = false;
-    torchBtn.hidden = true;
-    torchBtn.classList.remove('on');
+    torchFab.hidden = true;
+    torchFab.classList.remove('on');
     const track = stream && stream.getVideoTracks()[0];
     if (!track || typeof track.getCapabilities !== 'function') return;
     let caps = {};
     try { caps = track.getCapabilities(); } catch (_) {}
     if (caps.torch) {
       torchTrack = track;
-      torchBtn.hidden = false;
+      torchFab.hidden = false;
     }
   }
 
@@ -631,13 +1355,12 @@
     try {
       await torchTrack.applyConstraints({ advanced: [{ torch: next }] });
       torchOn = next;
-      torchBtn.classList.toggle('on', torchOn);
+      torchFab.classList.toggle('on', torchOn);
     } catch (e) {
-      log('Torch toggle failed: ' + (e.message || e), 'warn');
+      log('Fallo al cambiar la linterna: ' + (e.message || e), 'warn');
     }
   }
 
-  // ------------------------------------------------- crop + rotation
   function getCropRectPx(vw, vh) {
     const r = getRegion(vw, vh);
     let x = r.x * vw, y = r.y * vh, w = r.w * vw, h = r.h * vh;
@@ -683,11 +1406,6 @@
     return rotCanvas;
   }
 
-  // ------------------------------------------------------- decoding
-  // Tries native BarcodeDetector first (fast, and on Android the more
-  // rotation-tolerant of the two engines), then the ZXing core pipeline
-  // on the same canvas as a backstop — and the only engine at all on
-  // iOS, where BarcodeDetector doesn't exist.
   async function tryDecode(canvas) {
     if (nativeDetector) {
       try {
@@ -697,7 +1415,7 @@
           if (hit) { flashRect('hit'); show(hit.rawValue); return true; }
         }
       } catch (e) {
-        logThrottled('Native detect error: ' + (e.message || e), 'err');
+        log('Error del detector nativo: ' + (e.message || e), 'err');
       }
     }
     if (zxingCore) {
@@ -705,8 +1423,7 @@
         const result = zxingDecode(canvas);
         if (result) { flashRect('hit'); show(result.getText()); return true; }
       } catch (e) {
-        // NotFoundException / ChecksumException / FormatException:
-        // nothing decoded on this attempt — expected most of the time.
+        // Nada decodificado en este intento — lo esperado.
       }
     }
     return false;
@@ -716,12 +1433,8 @@
     const base = makeCropCanvas();
     if (!base) return;
 
-    // Upright first — the common case, kept fast (one draw, no rotation).
     if (await tryDecode(base)) return;
 
-    // Round-robin one more orientation per tick so a sideways or
-    // upside-down code is caught within a few ticks, without the cost of
-    // trying all three extra angles on every single tick.
     const angle = EXTRA_ROTATIONS[rotCursor % EXTRA_ROTATIONS.length];
     rotCursor++;
     const rotated = rotatedCanvas(base, angle);
@@ -743,7 +1456,7 @@
       lastTick = now;
       busy = true;
       detectTick()
-        .catch(e => logThrottled('Detect error: ' + (e.message || e), 'err'))
+        .catch(e => log('Error de detección: ' + (e.message || e), 'err'))
         .finally(() => { busy = false; });
     }
     scheduleTick(runLoop);
@@ -762,20 +1475,22 @@
     });
   }
 
-  // ------------------------------------------------------------- lifecycle
   async function start() {
     if (running) return;
-    running = true;
-    startBtn.disabled = true;
-    stopBtn.disabled = false;
+    if (isProfileOpen()) closeProfile();
+
+    setRunning(true);
+    hideToast();
+    tapCatch.classList.add('off');
+    fabsEl.hidden = false;
+
     codeEl.textContent = '—';
     gs1El.textContent = '';
     clearProduct();
-    lookupLinkEl.hidden = true;
     lastText = '';
     lastLookupCode = '';
-    log('--- start ---');
-    setStatus('Starting camera…');
+    log('--- inicio ---');
+    setStatus('Iniciando cámara…');
 
     try {
       stream = await acquireCamera();
@@ -784,16 +1499,15 @@
       await waitForVideoSize();
     } catch (err) {
       const m = err && err.message ? err.message : String(err);
-      log('Camera failed: ' + m, 'err');
+      log('Fallo de cámara: ' + m, 'err');
       setStatus('Error: ' + m);
-      stop();
+      stop('Error de cámara');
       return;
     }
 
     await tryEnableContinuousFocus();
     setupTorch();
 
-    // Engine 1: native BarcodeDetector (absent on iOS Safari — expected).
     if ('BarcodeDetector' in window) {
       try {
         let formats = BARCODE_FORMATS;
@@ -803,28 +1517,26 @@
           if (filtered.length) formats = filtered;
         }
         nativeDetector = new BarcodeDetector({ formats });
-        log('Native BarcodeDetector ready (' + formats.length + ' formats)', 'ok');
+        log('Detector nativo listo (' + formats.length + ' formatos)', 'ok');
       } catch (e) {
         nativeDetector = null;
-        log('Native detector init failed: ' + (e.message || e), 'warn');
+        log('Inicio del detector nativo falló: ' + (e.message || e), 'warn');
       }
     } else {
-      log('Native BarcodeDetector not available (expected on iOS Safari)', 'warn');
+      log('Detector nativo no disponible (esperado en iOS Safari)', 'warn');
     }
 
-    setStatus(nativeDetector ? 'Scanning · native' : 'Loading decoder…');
+    setStatus(nativeDetector ? 'Escaneando…' : 'Cargando decodificador…');
 
-    // Engine 2: ZXing core pipeline — always loaded, since it's the only
-    // engine at all on iOS and a useful backstop on Android too.
     loadZXing().then((ZX) => {
       if (!running) return;
       zxingCore = setupZXingCore(ZX);
-      if (!nativeDetector) setStatus('Scanning · ZXing');
+      if (!nativeDetector) setStatus('Escaneando…');
     }).catch((e) => {
-      log('ZXing failed to load: ' + (e.message || e), nativeDetector ? 'warn' : 'err');
+      log('ZXing no cargó: ' + (e.message || e), nativeDetector ? 'warn' : 'err');
       if (!nativeDetector) {
-        setStatus('Error: no decoder available');
-        stop();
+        setStatus('Error: no hay decodificador disponible');
+        stop('Sin decodificador');
       }
     });
 
@@ -832,7 +1544,7 @@
   }
 
   function stop(reason) {
-    running = false;
+    setRunning(false);
     if (rafId) { cancelAnimationFrame(rafId); rafId = 0; }
     if (rvfcHandle && video.cancelVideoFrameCallback) {
       try { video.cancelVideoFrameCallback(rvfcHandle); } catch (_) {}
@@ -846,28 +1558,66 @@
     video.srcObject = null;
     torchTrack = null;
     torchOn = false;
-    torchBtn.hidden = true;
-    torchBtn.classList.remove('on');
+    torchFab.hidden = true;
+    torchFab.classList.remove('on');
+    fabsEl.hidden = true;
     rectEl.classList.remove('on', 'hit');
-    startBtn.disabled = false;
-    stopBtn.disabled = true;
-    setStatus(reason || 'Stopped');
-    log(reason ? '--- stopped: ' + reason + ' ---' : '--- stopped ---');
+    tapCatch.classList.remove('off');
+
+    setStatus(reason || 'Detenido');
+    log(reason ? '--- detenido: ' + reason + ' ---' : '--- detenido ---');
+
+    if (!isProfileOpen()) {
+      showToast('Toca la pantalla para escanear', TOAST_MS);
+    }
   }
 
   // ------------------------------------------------------------- wiring
-  startBtn.addEventListener('click', start);
-  stopBtn.addEventListener('click', () => stop());
-  torchBtn.addEventListener('click', toggleTorch);
+  tapCatch.addEventListener('click', (e) => {
+    e.preventDefault();
+    if (isProfileOpen()) { closeProfile(); return; }
+    if (!running) start();
+  });
+
+  document.addEventListener('click', (e) => {
+    if (!isProfileOpen()) return;
+    if (profileCard.contains(e.target)) return;
+    if (e.target === tapCatch) return;
+    closeProfile();
+  }, true);
+
+  stopFab.addEventListener('click', (e) => {
+    e.stopPropagation();
+    if (running) stop('Detenido manualmente');
+  });
+
+  torchFab.addEventListener('click', (e) => {
+    e.stopPropagation();
+    toggleTorch();
+  });
 
   window.addEventListener('resize', updateOverlay);
   window.addEventListener('orientationchange', () => setTimeout(updateOverlay, 200));
   video.addEventListener('loadedmetadata', updateOverlay);
 
-  window.addEventListener('pagehide', () => { if (running) stop(); });
-  document.addEventListener('visibilitychange', () => {
-    if (document.hidden && running) stop();
+  window.addEventListener('pagehide', () => {
+    if (running) {
+      running = false;
+      if (rafId) { cancelAnimationFrame(rafId); rafId = 0; }
+      if (rvfcHandle && video.cancelVideoFrameCallback) {
+        try { video.cancelVideoFrameCallback(rvfcHandle); } catch (_) {}
+        rvfcHandle = 0;
+      }
+      if (stream) { stream.getTracks().forEach(t => t.stop()); stream = null; }
+      try { video.pause(); } catch (_) {}
+      video.srcObject = null;
+    }
   });
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden && running) stop('Pausado');
+  });
+
+  showToast('Toca la pantalla para escanear', TOAST_MS);
 })();
 </script>
 </body>
