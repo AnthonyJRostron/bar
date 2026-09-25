@@ -116,6 +116,14 @@
   #product .badge.grade-d { background: #7a2e00; color: #ffab91; }
   #product .badge.grade-e { background: #6b1c1c; color: #ef9a9a; }
 
+  #lookupLink {
+    display: block; margin-top: 16px; text-align: center;
+    padding: 13px 16px; border-radius: 10px;
+    background: #1f6feb; color: #fff; text-decoration: none;
+    font-weight: 600; font-size: 14px;
+  }
+  #lookupLink[hidden] { display: none; }
+
   #bar {
     flex: 0 0 auto; display: flex; gap: 10px;
     padding: 12px 12px calc(12px + env(safe-area-inset-bottom));
@@ -154,6 +162,7 @@
         <div class="brand"></div>
         <div class="meta"></div>
       </div>
+      <a id="lookupLink" href="#" target="_blank" rel="noopener noreferrer" hidden>View on Barcode Lookup ↗</a>
     </div>
   </div>
 
@@ -177,6 +186,7 @@
   const nameEl    = productEl.querySelector('.name');
   const brandEl   = productEl.querySelector('.brand');
   const metaEl    = productEl.querySelector('.meta');
+  const lookupLinkEl = document.getElementById('lookupLink');
   const statusEl  = document.getElementById('status');
   const logEl     = document.getElementById('log');
   const startBtn  = document.getElementById('start');
@@ -202,6 +212,7 @@
   const CROP_PADDING  = 0.08; // extra margin around the viewfinder box
 
   const OFF_BASE = 'https://world.openfoodfacts.org/api/v2/product/';
+  const BARCODE_LOOKUP_BASE = 'https://www.barcodelookup.com/';
   const CORS_PROXIES = [
     { name: 'corsproxy.io',  build: (u) => 'https://corsproxy.io/?url=' + encodeURIComponent(u) },
     { name: 'allorigins',    build: (u) => 'https://api.allorigins.win/raw?url=' + encodeURIComponent(u) },
@@ -500,7 +511,7 @@
   }
 
   // ---------------------------------------------------------- show value
-  function show(text) {
+  function show(text, format) {
     const now = Date.now();
     if (text === lastText && now - lastAt < DEDUPE_MS) return;
     lastText = text;
@@ -518,6 +529,20 @@
 
     if (parsed) lookupOFF(text);
     else { clearProduct(); lastLookupCode = ''; }
+
+    // A genuine barcode (not a QR/2D code): reveal the Barcode Lookup link
+    // and stop the camera — the user has what they came for and can browse
+    // straight to it, or tap Start again to scan another item.
+    const isBarcode = formatMatchesMode(format, 'barcode');
+    if (isBarcode) {
+      const digits = String(text).replace(/\D/g, '');
+      const query = digits.length >= 6 ? digits : text;
+      lookupLinkEl.href = BARCODE_LOOKUP_BASE + encodeURIComponent(query);
+      lookupLinkEl.hidden = false;
+      if (running) stop('Barcode detected — tap Start to scan again');
+    } else {
+      lookupLinkEl.hidden = true;
+    }
   }
 
   // ------------------------------------------------------- script loading
@@ -695,7 +720,7 @@
       try {
         const codes = await nativeDetector.detect(canvas);
         const hit = pickNativeMatch(codes);
-        if (hit) { flashRect('hit'); show(hit.rawValue); return true; }
+        if (hit) { flashRect('hit'); show(hit.rawValue, hit.format); return true; }
       } catch (e) {
         logThrottled('Native detect error: ' + (e.message || e), 'err');
       }
@@ -706,7 +731,7 @@
         if (result) {
           const fmtName = ZXingLib.BarcodeFormat[result.getBarcodeFormat()] || '';
           if (formatMatchesMode(fmtName, currentMode)) {
-            flashRect('hit'); show(result.getText()); return true;
+            flashRect('hit'); show(result.getText(), fmtName); return true;
           }
           logThrottled('ZXing: ' + fmtName + ' filtered by mode', 'warn');
         }
@@ -777,6 +802,7 @@
     codeEl.textContent = '—';
     gs1El.textContent = '';
     clearProduct();
+    lookupLinkEl.hidden = true;
     lastText = '';
     lastLookupCode = '';
     log('--- start ---');
@@ -851,7 +877,7 @@
     runLoop();
   }
 
-  function stop() {
+  function stop(reason) {
     running = false;
     if (rafId) { cancelAnimationFrame(rafId); rafId = 0; }
     if (rvfcHandle && video.cancelVideoFrameCallback) {
@@ -873,8 +899,8 @@
     rectEl.classList.remove('on', 'hit');
     startBtn.disabled = false;
     stopBtn.disabled = true;
-    setStatus('Stopped');
-    log('--- stopped ---');
+    setStatus(reason || 'Stopped');
+    log(reason ? '--- stopped: ' + reason + ' ---' : '--- stopped ---');
   }
 
   function setMode(mode) {
