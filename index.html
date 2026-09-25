@@ -4,7 +4,7 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
 <meta name="theme-color" content="#000000" />
-<title>Barcode &amp; QR Scanner</title>
+<title>Barcode Scanner</title>
 <style>
   :root { color-scheme: dark; }
   * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
@@ -44,18 +44,6 @@
     display: flex; flex-direction: column; align-items: center; gap: 8px;
     pointer-events: none;
   }
-  #modeToggle {
-    display: inline-flex; background: rgba(20,20,22,0.92);
-    border: 1px solid #2a2a2e; border-radius: 999px; padding: 3px;
-    pointer-events: auto;
-    -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px);
-  }
-  #modeToggle button {
-    flex: 0 0 auto; border: 0; background: transparent; color: #9aa0a6;
-    font: inherit; font-size: 13px; font-weight: 600;
-    padding: 7px 16px; border-radius: 999px; cursor: pointer; min-width: 72px;
-  }
-  #modeToggle button.active { background: #1f6feb; color: #fff; }
 
   #status {
     font-size: 12px; color: #9aa0a6; text-align: center;
@@ -146,10 +134,6 @@
     <div id="overlay"><div id="rect"></div></div>
 
     <div id="topbar">
-      <div id="modeToggle">
-        <button data-mode="qr">QR</button>
-        <button data-mode="barcode" class="active">Barcode</button>
-      </div>
       <div id="status">Tap Start to scan</div>
       <div id="logWrap"><pre id="log">ready.</pre></div>
     </div>
@@ -192,22 +176,17 @@
   const startBtn  = document.getElementById('start');
   const stopBtn   = document.getElementById('stop');
   const torchBtn  = document.getElementById('torch');
-  const modeBtns  = document.querySelectorAll('#modeToggle button');
 
   // ------------------------------------------------------------- constants
-  const MODE_FORMATS = {
-    qr:      ['qr_code', 'data_matrix', 'pdf417', 'aztec'],
-    barcode: ['ean_13', 'ean_8', 'upc_a', 'upc_e',
-              'code_128', 'code_39', 'code_93', 'itf', 'codabar']
-  };
-  const ALL_FORMATS = [...MODE_FORMATS.qr, ...MODE_FORMATS.barcode];
+  // 1D barcode formats only — QR/2D support has been removed entirely.
+  const BARCODE_FORMATS = ['ean_13', 'ean_8', 'upc_a', 'upc_e',
+                            'code_128', 'code_39', 'code_93', 'itf', 'codabar'];
 
-  // We no longer decode the whole (downscaled) frame. Instead we crop out
-  // just the viewfinder region at (near-)native resolution — this is what
-  // actually fixes "code is in the box but isn't detected": the barcode
-  // stops being a small blurry patch of a shrunk frame and becomes the
-  // dominant subject of a full-resolution image. CROP_MAX_DIM only bounds
-  // cost on very high-res cameras; it rarely kicks in in practice.
+  // We crop just the viewfinder region out of the video at (near-)native
+  // resolution and decode that crop — not the whole downscaled frame. This
+  // is what makes "code is in the box but isn't detected" go away: the
+  // barcode becomes the dominant subject of a full-resolution image
+  // instead of a small blurry patch of a shrunk one.
   const CROP_MAX_DIM  = 1400;
   const CROP_PADDING  = 0.08; // extra margin around the viewfinder box
 
@@ -265,14 +244,12 @@
   const LOG_MAX              = 5;
   const DETECT_LOG_THROTTLE  = 500;
 
-  // Cardinal rotations we try. 0deg is attempted every tick (the common
-  // case stays fast); one more angle is round-robined in each tick so a
-  // sideways or upside-down code is caught within a few ticks (well under
-  // half a second) without paying for all three extra angles every time.
+  // Cardinal rotations. 0deg every tick (fast path); one more angle is
+  // round-robined in each tick so a sideways or upside-down barcode is
+  // caught within a few tenths of a second.
   const EXTRA_ROTATIONS = [90, 180, 270];
 
   // ---------------------------------------------------------------- state
-  let currentMode     = 'barcode';
   let running         = false;
   let rafId           = 0;
   let rvfcHandle      = 0;
@@ -280,9 +257,7 @@
   let lastTick        = 0;
   let stream          = null;
   let nativeDetector  = null;
-  let zxingReader     = null;
-  let zxingCanvasOK   = false;
-  let ZXingLib        = null;
+  let zxingCore       = null; // { Lib, reader } once loaded and configured
   let torchTrack      = null;
   let torchOn         = false;
   let rotCursor       = 0;
@@ -460,21 +435,11 @@
   }
 
   // --------------------------------------------------- viewfinder region
-  // These fractions define BOTH what's drawn on screen and what gets
-  // cropped for decoding, so "in the box" and "what the decoder sees"
-  // are now the same thing. The barcode band is deliberately generous
-  // (not a tight rectangle) so a tilted or upside-down code anywhere in
-  // it still gets picked up.
-  function getRegion(mode, vw, vh) {
-    if (mode === 'qr') {
-      const side = Math.min(vw, vh) * 0.78;
-      return {
-        x: (vw - side) / 2 / vw,
-        y: (vh - side) / 2 / vh,
-        w: side / vw,
-        h: side / vh
-      };
-    }
+  // Defines BOTH what's drawn on screen and what gets cropped for decoding,
+  // so "in the box" and "what the decoder sees" are the same thing. It's
+  // deliberately generous (not a tight rectangle) so a tilted or
+  // upside-down code anywhere in it still gets picked up.
+  function getRegion(vw, vh) {
     return { x: 0.06, y: 0.18, w: 0.88, h: 0.64 };
   }
 
@@ -489,7 +454,7 @@
     const dw = vw * scale, dh = vh * scale;
     const dx = (cw - dw) / 2, dy = (ch - dh) / 2;
 
-    const r = getRegion(currentMode, vw, vh);
+    const r = getRegion(vw, vh);
     rectEl.style.left   = (dx + r.x * dw) + 'px';
     rectEl.style.top    = (dy + r.y * dh) + 'px';
     rectEl.style.width  = (r.w * dw) + 'px';
@@ -505,13 +470,8 @@
     flashTimer = setTimeout(() => rectEl.classList.remove('hit'), 450);
   }
 
-  function formatMatchesMode(format, mode) {
-    const f = String(format || '').toLowerCase().replace(/-/g, '_');
-    return MODE_FORMATS[mode].indexOf(f) !== -1;
-  }
-
   // ---------------------------------------------------------- show value
-  function show(text, format) {
+  function show(text) {
     const now = Date.now();
     if (text === lastText && now - lastAt < DEDUPE_MS) return;
     lastText = text;
@@ -530,19 +490,15 @@
     if (parsed) lookupOFF(text);
     else { clearProduct(); lastLookupCode = ''; }
 
-    // A genuine barcode (not a QR/2D code): reveal the Barcode Lookup link
-    // and stop the camera — the user has what they came for and can browse
-    // straight to it, or tap Start again to scan another item.
-    const isBarcode = formatMatchesMode(format, 'barcode');
-    if (isBarcode) {
-      const digits = String(text).replace(/\D/g, '');
-      const query = digits.length >= 6 ? digits : text;
-      lookupLinkEl.href = BARCODE_LOOKUP_BASE + encodeURIComponent(query);
-      lookupLinkEl.hidden = false;
-      if (running) stop('Barcode detected — tap Start to scan again');
-    } else {
-      lookupLinkEl.hidden = true;
-    }
+    // Every hit here is a genuine 1D barcode (QR support was removed), so
+    // always reveal the Barcode Lookup link and stop the camera — the user
+    // has what they came for and can browse straight to it, or tap Start
+    // again to scan another item.
+    const digits = text.replace(/\D/g, '');
+    const query = digits.length >= 6 ? digits : text;
+    lookupLinkEl.href = BARCODE_LOOKUP_BASE + encodeURIComponent(query);
+    lookupLinkEl.hidden = false;
+    if (running) stop('Barcode detected — tap Start to scan again');
   }
 
   // ------------------------------------------------------- script loading
@@ -569,11 +525,38 @@
     throw lastErr || new Error('ZXing could not be loaded');
   }
 
+  // Builds a MultiFormatReader configured for 1D barcodes only, using the
+  // library's own low-level primitives (BinaryBitmap + HybridBinarizer +
+  // HTMLCanvasElementLuminanceSource) rather than a convenience wrapper —
+  // this is what actually exists and works in this ZXing build, verified
+  // directly against the shipped package.
+  function setupZXingCore(ZX) {
+    const hints = new Map();
+    hints.set(ZX.DecodeHintType.TRY_HARDER, true);
+    const formats = [];
+    for (const name of BARCODE_FORMATS) {
+      const key = name.toUpperCase().replace(/-/g, '_');
+      if (ZX.BarcodeFormat[key] !== undefined) formats.push(ZX.BarcodeFormat[key]);
+    }
+    hints.set(ZX.DecodeHintType.POSSIBLE_FORMATS, formats);
+    const reader = new ZX.MultiFormatReader();
+    reader.setHints(hints);
+    log('ZXing ready (' + formats.length + ' formats)', 'ok');
+    return { Lib: ZX, reader };
+  }
+
+  function zxingDecode(canvas) {
+    const src = new zxingCore.Lib.HTMLCanvasElementLuminanceSource(canvas);
+    const binarizer = new zxingCore.Lib.HybridBinarizer(src);
+    const bitmap = new zxingCore.Lib.BinaryBitmap(binarizer);
+    return zxingCore.reader.decodeWithState(bitmap); // throws if nothing found
+  }
+
   // ------------------------------------------------ camera acquisition
   // Try progressively more permissive constraint sets. Resolution is
-  // pushed higher than before (1920x1080 ideal) because we now crop a
-  // small region out of the frame for decoding instead of shrinking the
-  // whole frame — more native pixels means more pixels on the barcode.
+  // pushed high (1920x1080 ideal) because we crop a small region out of
+  // the frame for decoding instead of shrinking the whole frame — more
+  // native pixels means more pixels on the barcode.
   async function acquireCamera() {
     const attempts = [
       { name: '1920x1080 env',
@@ -655,8 +638,8 @@
   }
 
   // ------------------------------------------------- crop + rotation
-  function getCropRectPx(mode, vw, vh) {
-    const r = getRegion(mode, vw, vh);
+  function getCropRectPx(vw, vh) {
+    const r = getRegion(vw, vh);
     let x = r.x * vw, y = r.y * vh, w = r.w * vw, h = r.h * vh;
     const padX = w * CROP_PADDING, padY = h * CROP_PADDING;
     x = Math.max(0, x - padX);
@@ -669,7 +652,7 @@
   function makeCropCanvas() {
     const vw = video.videoWidth, vh = video.videoHeight;
     if (!vw || !vh) return null;
-    const rect = getCropRectPx(currentMode, vw, vh);
+    const rect = getCropRectPx(vw, vh);
     let scale = 1;
     const maxDim = Math.max(rect.w, rect.h);
     if (maxDim > CROP_MAX_DIM) scale = CROP_MAX_DIM / maxDim;
@@ -701,40 +684,26 @@
   }
 
   // ------------------------------------------------------- decoding
-  function pickNativeMatch(codes) {
-    if (!codes) return null;
-    for (const c of codes) {
-      if (!c || !c.rawValue) continue;
-      if (formatMatchesMode(c.format, currentMode)) return c;
-      logThrottled('Detected ' + c.format + ' (filtered by mode)', 'warn');
-    }
-    return null;
-  }
-
   // Tries native BarcodeDetector first (fast, and on Android the more
-  // rotation-tolerant of the two engines), then ZXing on the same canvas
-  // as a backstop — and the only engine at all on iOS, where
-  // BarcodeDetector doesn't exist.
+  // rotation-tolerant of the two engines), then the ZXing core pipeline
+  // on the same canvas as a backstop — and the only engine at all on
+  // iOS, where BarcodeDetector doesn't exist.
   async function tryDecode(canvas) {
     if (nativeDetector) {
       try {
         const codes = await nativeDetector.detect(canvas);
-        const hit = pickNativeMatch(codes);
-        if (hit) { flashRect('hit'); show(hit.rawValue, hit.format); return true; }
+        if (codes && codes.length) {
+          const hit = codes.find(c => c && c.rawValue);
+          if (hit) { flashRect('hit'); show(hit.rawValue); return true; }
+        }
       } catch (e) {
         logThrottled('Native detect error: ' + (e.message || e), 'err');
       }
     }
-    if (zxingReader && zxingCanvasOK) {
+    if (zxingCore) {
       try {
-        const result = zxingReader.decodeFromCanvas(canvas);
-        if (result) {
-          const fmtName = ZXingLib.BarcodeFormat[result.getBarcodeFormat()] || '';
-          if (formatMatchesMode(fmtName, currentMode)) {
-            flashRect('hit'); show(result.getText(), fmtName); return true;
-          }
-          logThrottled('ZXing: ' + fmtName + ' filtered by mode', 'warn');
-        }
+        const result = zxingDecode(canvas);
+        if (result) { flashRect('hit'); show(result.getText()); return true; }
       } catch (e) {
         // NotFoundException / ChecksumException / FormatException:
         // nothing decoded on this attempt — expected most of the time.
@@ -827,10 +796,10 @@
     // Engine 1: native BarcodeDetector (absent on iOS Safari — expected).
     if ('BarcodeDetector' in window) {
       try {
-        let formats = ALL_FORMATS;
+        let formats = BARCODE_FORMATS;
         if (typeof BarcodeDetector.getSupportedFormats === 'function') {
           const supported = await BarcodeDetector.getSupportedFormats();
-          const filtered = ALL_FORMATS.filter(f => supported.indexOf(f) !== -1);
+          const filtered = BARCODE_FORMATS.filter(f => supported.indexOf(f) !== -1);
           if (filtered.length) formats = filtered;
         }
         nativeDetector = new BarcodeDetector({ formats });
@@ -845,27 +814,12 @@
 
     setStatus(nativeDetector ? 'Scanning · native' : 'Loading decoder…');
 
-    // Engine 2: ZXing — always loaded, since it's the rotation/1D backstop
-    // on Android and the only engine at all on iOS.
+    // Engine 2: ZXing core pipeline — always loaded, since it's the only
+    // engine at all on iOS and a useful backstop on Android too.
     loadZXing().then((ZX) => {
       if (!running) return;
-      ZXingLib = ZX;
-      const hints = new Map();
-      hints.set(ZX.DecodeHintType.TRY_HARDER, true);
-      const formats = [];
-      for (const name of ALL_FORMATS) {
-        const key = name.toUpperCase().replace(/-/g, '_');
-        if (ZX.BarcodeFormat[key] !== undefined) formats.push(ZX.BarcodeFormat[key]);
-      }
-      hints.set(ZX.DecodeHintType.POSSIBLE_FORMATS, formats);
-      zxingReader = new ZX.BrowserMultiFormatReader(hints);
-      zxingCanvasOK = typeof zxingReader.decodeFromCanvas === 'function';
-      if (!zxingCanvasOK) {
-        log('ZXing loaded but decodeFromCanvas unavailable in this build — ZXing disabled', 'warn');
-      } else {
-        log('ZXing ready (' + formats.length + ' formats)', 'ok');
-      }
-      if (!nativeDetector && zxingCanvasOK) setStatus('Scanning · ZXing');
+      zxingCore = setupZXingCore(ZX);
+      if (!nativeDetector) setStatus('Scanning · ZXing');
     }).catch((e) => {
       log('ZXing failed to load: ' + (e.message || e), nativeDetector ? 'warn' : 'err');
       if (!nativeDetector) {
@@ -886,9 +840,7 @@
     }
     busy = false;
     nativeDetector = null;
-    zxingReader = null;
-    zxingCanvasOK = false;
-    ZXingLib = null;
+    zxingCore = null;
     if (stream) { stream.getTracks().forEach(t => t.stop()); stream = null; }
     try { video.pause(); } catch (_) {}
     video.srcObject = null;
@@ -903,21 +855,10 @@
     log(reason ? '--- stopped: ' + reason + ' ---' : '--- stopped ---');
   }
 
-  function setMode(mode) {
-    if (mode !== 'qr' && mode !== 'barcode') return;
-    currentMode = mode;
-    modeBtns.forEach(b => b.classList.toggle('active', b.dataset.mode === mode));
-    updateOverlay();
-    clearTimeout(flashTimer);
-    rectEl.classList.remove('hit');
-    log('Mode: ' + mode);
-  }
-
   // ------------------------------------------------------------- wiring
   startBtn.addEventListener('click', start);
-  stopBtn.addEventListener('click', stop);
+  stopBtn.addEventListener('click', () => stop());
   torchBtn.addEventListener('click', toggleTorch);
-  modeBtns.forEach(b => b.addEventListener('click', () => setMode(b.dataset.mode)));
 
   window.addEventListener('resize', updateOverlay);
   window.addEventListener('orientationchange', () => setTimeout(updateOverlay, 200));
