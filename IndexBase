@@ -44,7 +44,8 @@
     cursor: pointer;
     user-select: none; -webkit-user-select: none;
   }
-  #tapCatch.off { pointer-events: none; }
+  #tapCatch.off      { pointer-events: none; }
+  #tapCatch.blocked  { pointer-events: none; }
 
   #fabs {
     position: absolute;
@@ -67,27 +68,69 @@
   .fab[hidden] { display: none; }
   #torchFab.on { background: #fbbf24; color: #1a1a1a; border-color: #fbbf24; }
 
+  /* ---------------- Toast con barra de progreso ---------------- */
   #toast {
     position: absolute;
     left: 50%; top: 34%;
     transform: translate(-50%, -50%);
-    background: rgba(20,20,24,0.92);
-    border: 1px solid rgba(255,255,255,0.12);
-    padding: 14px 22px;
-    border-radius: 14px;
+    background: rgba(20,20,24,0.95);
+    border: 1px solid rgba(255,255,255,0.14);
+    padding: 16px 22px 14px;
+    border-radius: 16px;
     font-size: 15px; font-weight: 700;
     color: #fff;
     z-index: 5;
     opacity: 0;
-    transition: opacity .25s ease;
+    transition: opacity .3s ease;
     pointer-events: none;
     text-align: center;
-    max-width: 82%;
-    box-shadow: 0 8px 30px rgba(0,0,0,0.6);
-    -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px);
+    min-width: 250px;
+    max-width: 86%;
+    box-shadow: 0 10px 34px rgba(0,0,0,0.7);
+    -webkit-backdrop-filter: blur(12px); backdrop-filter: blur(12px);
     line-height: 1.35;
   }
   #toast.on { opacity: 1; }
+
+  #toast .toast-text { display: block; }
+
+  #toast .toast-progress {
+    height: 0;
+    margin: 0;
+    opacity: 0;
+    background: rgba(255,255,255,0.14);
+    border-radius: 4px;
+    overflow: hidden;
+    transition: height .3s ease, margin .3s ease, opacity .3s ease;
+  }
+  #toast .toast-bar {
+    display: block;
+    height: 100%;
+    width: 0%;
+    background: linear-gradient(90deg, #1f6feb 0%, #6ee7a8 100%);
+    border-radius: 4px;
+    transition: width .2s ease-out;
+  }
+  #toast .toast-pct {
+    height: 0;
+    margin: 0;
+    opacity: 0;
+    font-size: 11px;
+    color: #9aa0a6;
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+    transition: height .3s ease, margin .3s ease, opacity .3s ease;
+  }
+  #toast.loading .toast-progress {
+    height: 8px;
+    margin: 12px 0 6px;
+    opacity: 1;
+  }
+  #toast.loading .toast-pct {
+    height: auto;
+    margin: 0;
+    opacity: 1;
+  }
 
   #topbar {
     position: absolute; top: 0; left: 0; right: 0;
@@ -215,6 +258,7 @@
   }
   .cond.on { background: #14223c; border-color: #1f6feb; }
   .cond.on .tick { background: #1f6feb; border-color: #1f6feb; color: #fff; }
+  .cond.exclusive .tick { border-radius: 50%; }
   .cond .ico { font-size: 15px; flex: 0 0 auto; }
 
   .profile-note { font-size: 11px; color: #6b6b70; margin-top: 12px; text-align: center; }
@@ -223,7 +267,6 @@
   #analysis { display: none; }
   #analysis.visible { display: block; }
 
-  /* Aviso de alérgeno — mucho más evidente */
   .allergen-warning {
     display: flex; gap: 14px; align-items: flex-start;
     background: linear-gradient(135deg, #7f1d1d 0%, #991b1b 100%);
@@ -313,9 +356,13 @@
   <div id="stage">
     <video id="video" playsinline webkit-playsinline muted autoplay></video>
     <div id="overlay"><div id="rect"></div></div>
-    <div id="tapCatch"></div>
+    <div id="tapCatch" class="blocked"></div>
 
-    <div id="toast"></div>
+    <div id="toast">
+      <span class="toast-text">Preparando el escáner…</span>
+      <div class="toast-progress"><span class="toast-bar"></span></div>
+      <div class="toast-pct">0%</div>
+    </div>
 
     <div id="fabs" hidden>
       <button id="torchFab" class="fab" hidden title="Linterna">🔦</button>
@@ -323,7 +370,7 @@
     </div>
 
     <div id="topbar">
-      <div id="status">Toca la pantalla para escanear</div>
+      <div id="status">Preparando…</div>
     </div>
 
     <div id="panel">
@@ -336,9 +383,16 @@
           <span class="chev">▾</span>
         </button>
         <div id="profileBody">
-          <div class="tl-title" style="margin-top:6px">Condiciones de salud</div>
-          <div class="cond-grid" id="condGrid"></div>
-          <div class="profile-note">Guardado solo en este dispositivo · no es consejo médico</div>
+          <div class="tl-title" style="margin-top:6px">Diabetes</div>
+          <div class="cond-grid" id="condGridDiabetes"></div>
+
+          <div class="tl-title">Otras condiciones de salud</div>
+          <div class="cond-grid" id="condGridOther"></div>
+
+          <div class="profile-note">
+            Las opciones de diabetes son excluyentes entre sí.<br>
+            Guardado solo en este dispositivo · no es consejo médico.
+          </div>
         </div>
       </div>
 
@@ -373,6 +427,9 @@
   const statusEl  = document.getElementById('status');
   const tapCatch  = document.getElementById('tapCatch');
   const toastEl   = document.getElementById('toast');
+  const toastTextEl = toastEl.querySelector('.toast-text');
+  const toastBarEl  = toastEl.querySelector('.toast-bar');
+  const toastPctEl  = toastEl.querySelector('.toast-pct');
   const fabsEl    = document.getElementById('fabs');
   const stopFab   = document.getElementById('stopFab');
   const torchFab  = document.getElementById('torchFab');
@@ -382,6 +439,7 @@
                             'code_128', 'code_39', 'code_93', 'itf', 'codabar'];
 
   const MIN_CODE_LENGTH = 8;
+  const MIN_PRELOAD_MS  = 3000;
 
   const CROP_MAX_DIM  = 1400;
   const CROP_PADDING  = 0.08;
@@ -449,6 +507,8 @@
   let stream          = null;
   let nativeDetector  = null;
   let zxingCore       = null;
+  let preloadedZXing  = null;
+  let systemReady     = false;
   let torchTrack      = null;
   let torchOn         = false;
   let rotCursor       = 0;
@@ -458,7 +518,11 @@
   let lookupId        = 0;
   let flashTimer      = 0;
   let lastProductData = null;
-  let toastTimer      = 0;
+
+  let toastProgress   = 0;
+  let toastTarget     = 0;
+  let toastAnimId     = 0;
+  let toastAutoTimer  = 0;
 
   const cropCanvas = document.createElement('canvas');
   cropCanvas.style.display = 'none';
@@ -470,7 +534,9 @@
   document.body.appendChild(rotCanvas);
   const rotCtx = rotCanvas.getContext('2d', { willReadFrequently: true });
 
-  // ---------------------------------------------------------------- log
+  // ---------------------------------------------------------------- utils
+  function delay(ms) { return new Promise(r => setTimeout(r, ms)); }
+
   function log(msg, cls) {
     const tag = '[Escáner]';
     if (cls === 'err')       console.error(tag, msg);
@@ -480,33 +546,128 @@
 
   function setStatus(t) { statusEl.textContent = t; }
 
-  function showToast(msg, ms) {
-    toastEl.textContent = msg;
-    toastEl.classList.add('on');
-    clearTimeout(toastTimer);
-    toastTimer = setTimeout(() => toastEl.classList.remove('on'), ms || TOAST_MS);
+  // -------------------------------------------------- toast + progreso
+  function renderLoadProgress() {
+    const pct = Math.max(0, Math.min(100, Math.round(toastProgress)));
+    toastBarEl.style.width = pct + '%';
+    toastPctEl.textContent = pct + '%';
+  }
+
+  function progressTick() {
+    const diff = toastTarget - toastProgress;
+    if (Math.abs(diff) < 0.4) {
+      toastProgress = toastTarget;
+      renderLoadProgress();
+      toastAnimId = 0;
+      return;
+    }
+    toastProgress += diff * 0.18;
+    if ((diff > 0 && toastProgress > toastTarget) ||
+        (diff < 0 && toastProgress < toastTarget)) {
+      toastProgress = toastTarget;
+    }
+    renderLoadProgress();
+    toastAnimId = requestAnimationFrame(progressTick);
+  }
+
+  function setLoadProgress(target, label) {
+    toastTarget = Math.max(0, Math.min(100, target));
+    if (label != null) toastTextEl.textContent = label;
+    if (!toastAnimId) toastAnimId = requestAnimationFrame(progressTick);
+  }
+
+  function showLoadingToast(label) {
+    clearTimeout(toastAutoTimer);
+    toastEl.classList.add('on', 'loading');
+    if (label != null) toastTextEl.textContent = label;
   }
 
   function hideToast() {
-    clearTimeout(toastTimer);
+    clearTimeout(toastAutoTimer);
     toastEl.classList.remove('on');
   }
 
-  function setRunning(isRunning) {
-    running = isRunning;
-    document.body.classList.toggle('running', isRunning);
+  function resetProgress() {
+    if (toastAnimId) { cancelAnimationFrame(toastAnimId); toastAnimId = 0; }
+    toastProgress = 0;
+    toastTarget = 0;
+    toastBarEl.style.width = '0%';
+    toastPctEl.textContent = '0%';
   }
 
-  function clearProduct() {
-    productEl.classList.remove('visible');
-    nameEl.textContent = '';
-    brandEl.textContent = '';
-    metaEl.innerHTML = '';
-    ingredientsEl.textContent = '';
-    ingredientsEl.classList.remove('visible');
-    analysisEl.innerHTML = '';
-    analysisEl.classList.remove('visible');
-    lastProductData = null;
+  function showToast(msg, ms) {
+    clearTimeout(toastAutoTimer);
+    resetProgress();
+    toastEl.classList.remove('loading');
+    if (msg != null) toastTextEl.textContent = msg;
+    toastEl.classList.add('on');
+    if (ms) {
+      toastAutoTimer = setTimeout(() => toastEl.classList.remove('on'), ms);
+    }
+  }
+
+  // ------------------------------------------------------- carga de scripts
+  function loadScript(src) {
+    return new Promise((resolve, reject) => {
+      const s = document.createElement('script');
+      s.src = src; s.async = true;
+      s.onload = () => resolve();
+      s.onerror = () => { s.remove(); reject(new Error('No se pudo cargar ' + src)); };
+      document.head.appendChild(s);
+    });
+  }
+
+  async function loadZXingLibrary() {
+    if (window.ZXing) return window.ZXing;
+    let lastErr;
+    for (const url of ZXING_URLS) {
+      try {
+        log('ZXing: cargando…');
+        await loadScript(url);
+        if (window.ZXing) { log('ZXing: cargado', 'ok'); return window.ZXing; }
+      } catch (e) { lastErr = e; log('ZXing: fallo al cargar', 'warn'); }
+    }
+    throw lastErr || new Error('No se pudo cargar ZXing');
+  }
+
+  async function preload() {
+    const t0 = Date.now();
+
+    showLoadingToast('Preparando el escáner…');
+    setLoadProgress(5, 'Preparando el escáner…');
+
+    await delay(120);
+
+    try {
+      setLoadProgress(25, 'Cargando decodificador…');
+      const ZX = await loadZXingLibrary();
+      preloadedZXing = ZX;
+
+      setLoadProgress(75, 'Configurando decodificador…');
+      await delay(180);
+
+      if (!ZX.MultiFormatReader || !ZX.HTMLCanvasElementLuminanceSource) {
+        throw new Error('Biblioteca ZXing incompleta');
+      }
+      setLoadProgress(95, 'Verificando…');
+      await delay(120);
+    } catch (e) {
+      log('Precarga de ZXing fallida: ' + (e.message || e), 'err');
+    }
+
+    setLoadProgress(100, 'Listo');
+
+    const elapsed = Date.now() - t0;
+    if (elapsed < MIN_PRELOAD_MS) {
+      await delay(MIN_PRELOAD_MS - elapsed);
+    }
+
+    systemReady = true;
+    tapCatch.classList.remove('blocked');
+    setStatus('Toca la pantalla para escanear');
+    showToast('Toca la pantalla para escanear', TOAST_MS);
+
+    log('Sistema listo', 'ok');
   }
 
   // ------------------------------------------------------------ GS1 parse
@@ -653,12 +814,24 @@
 
   const PROFILE_KEY = 'barcodeScanner.paciente.v1';
 
-  // Condiciones de salud. Los alérgenos usan un icono distinto para
-  // reconocerlos rápidamente en el perfil.
+  const EXCLUSIVE_GROUPS = [
+    {
+      label: 'Diabetes',
+      hint:  'elige una',
+      ids:   ['type1diabetes', 'diabetes', 'prediabetes']
+    }
+  ];
+
+  const EXCLUSIVE_IDS = {};
+  for (const g of EXCLUSIVE_GROUPS) {
+    for (const id of g.ids) EXCLUSIVE_IDS[id] = true;
+  }
+
   const CONDITIONS = [
-    { id: 'type1diabetes', label: 'Diabetes tipo 1',            icon: '💉' },
-    { id: 'diabetes',      label: 'Diabetes tipo 2',            icon: '🩸' },
-    { id: 'prediabetes',   label: 'Prediabetes',                icon: '🩺' },
+    { id: 'type1diabetes', label: 'Diabetes tipo 1',            icon: '💉', group: 'diabetes' },
+    { id: 'diabetes',      label: 'Diabetes tipo 2',            icon: '🩸', group: 'diabetes' },
+    { id: 'prediabetes',   label: 'Prediabetes',                icon: '🩺', group: 'diabetes' },
+
     { id: 'hbp',           label: 'Hipertensión',               icon: '❤️' },
     { id: 'heartfailure',  label: 'Insuficiencia cardíaca',     icon: '💔' },
     { id: 'cholesterol',   label: 'Colesterol alto',            icon: '🫀' },
@@ -672,7 +845,7 @@
     { id: 'anemia',        label: 'Anemia ferropénica',         icon: '🩹' },
     { id: 'osteoporosis',  label: 'Osteoporosis',               icon: '🦴' },
     { id: 'pregnancy',     label: 'Embarazo',                   icon: '🤰' },
-    // Alérgenos e intolerancias
+
     { id: 'celiac',        label: 'Celiaquía (gluten)',         icon: '🌾' },
     { id: 'lactose',       label: 'Intolerancia a la lactosa',  icon: '🥛' },
     { id: 'nutallergy',    label: 'Alergia a frutos secos',     icon: '🥜' },
@@ -697,61 +870,25 @@
     salt:      { green: 0.3, red: 1.5,  label: 'Sal' }
   };
 
-  // Parámetros revisados por condición.
-  // Nota: `allergen` se compara contra allergens_tags de Open Food Facts.
   const CONDITION_RULES = {
-    // Diabetes tipo 1: azúcares y carbohidratos son lo principal; la fibra
-    // ralentiza la absorción de glucosa.
     type1diabetes: { nutrients: { sugars: 3, carbohydrates: 2, fiber: 2 } },
-
-    // Diabetes tipo 2: azúcares y carbohidratos; fibra muy beneficiosa.
     diabetes:      { nutrients: { sugars: 3, carbohydrates: 1.5, fiber: 2, energy: 1 } },
-
-    // Prediabetes: mismo foco, con algo más de peso a la carga total.
     prediabetes:   { nutrients: { sugars: 3, carbohydrates: 2, fiber: 2, energy: 1 } },
 
-    // Hipertensión: sodio dominante + grasa saturada cardiovascular.
     hbp:           { nutrients: { salt: 4, saturated: 1.5 } },
-
-    // Insuficiencia cardíaca: restricción de sodio aún más crítica y
-    // control de líquidos/calorías.
     heartfailure:  { nutrients: { salt: 4.5, energy: 1, saturated: 1 } },
-
-    // Colesterol alto: grasa saturada principal + fibra soluble.
     cholesterol:   { nutrients: { saturated: 3.5, fat: 1, fiber: 2 } },
-
-    // Enfermedad renal: sodio + proteínas + fósforo/potasio (no
-    // disponibles en OFF; aproximamos con sodio, proteínas y saturadas).
     ckd:           { nutrients: { salt: 4, proteins: 2, saturated: 1 } },
-
-    // Enfermedad hepática: sodio, azúcares y grasa saturada.
     liver:         { nutrients: { salt: 3, sugars: 2, saturated: 2 } },
-
-    // Control de peso: densidad energética primero, azúcares y saturadas.
     obesity:       { nutrients: { energy: 3, sugars: 2, saturated: 1.5, fiber: 2 } },
-
-    // Gota: azúcares (fructosa) y proteínas moderadas.
     gout:          { nutrients: { sugars: 2.5, proteins: 1.5, energy: 1 } },
-
-    // SII: grasa y azúcares desencadenantes frecuentes.
     ibs:           { nutrients: { fat: 2, sugars: 1.5 } },
-
-    // Reflujo (ERGE): grasa y azúcares empeoran síntomas; comidas copiosas.
     gerd:          { nutrients: { fat: 2, saturated: 1.5, sugars: 1 } },
-
-    // SOP / PCOS: azúcares y carbohidratos refinados; fibra ayuda.
     pcos:          { nutrients: { sugars: 3, carbohydrates: 2, fiber: 2 } },
-
-    // Anemia ferropénica: el hierro es beneficioso (no perjudicial).
     anemia:        { nutrients: { iron: 4 } },
-
-    // Osteoporosis: el calcio es beneficioso.
     osteoporosis:  { nutrients: { calcium: 4 } },
-
-    // Embarazo: patrón dietético saludable general.
     pregnancy:     { nutrients: { sugars: 2, saturated: 1.5, proteins: 1.5 } },
 
-    // Alérgenos e intolerancias. Se comparan contra allergens_tags.
     celiac:        { allergen: 'gluten',      allergenName: 'gluten' },
     lactose:       { allergen: 'milk',        allergenName: 'lactosa' },
     nutallergy:    { allergen: 'nuts',        allergenName: 'frutos secos' },
@@ -764,14 +901,25 @@
 
   const DEFAULT_PROFILE = { conditions: {} };
 
+  function sanitizeProfileConditions(conds) {
+    for (const g of EXCLUSIVE_GROUPS) {
+      const active = g.ids.filter(id => conds[id]);
+      if (active.length > 1) {
+        for (let i = 1; i < active.length; i++) conds[active[i]] = false;
+      }
+    }
+  }
+
   function loadProfile() {
     try {
       const raw = localStorage.getItem(PROFILE_KEY);
       if (!raw) return JSON.parse(JSON.stringify(DEFAULT_PROFILE));
       const p = JSON.parse(raw);
-      return {
+      const prof = {
         conditions: (p && p.conditions && typeof p.conditions === 'object') ? p.conditions : {}
       };
+      sanitizeProfileConditions(prof.conditions);
+      return prof;
     } catch (_) {
       return JSON.parse(JSON.stringify(DEFAULT_PROFILE));
     }
@@ -787,11 +935,16 @@
   const profileCard    = document.getElementById('profileCard');
   const profileToggle  = document.getElementById('profileToggle');
   const profileSummary = document.getElementById('profileSummary');
-  const condGrid       = document.getElementById('condGrid');
+  const condGridDiab   = document.getElementById('condGridDiabetes');
+  const condGridOther  = document.getElementById('condGridOther');
 
   function openProfile()  { profileCard.classList.add('open'); }
   function closeProfile() { profileCard.classList.remove('open'); }
   function isProfileOpen(){ return profileCard.classList.contains('open'); }
+
+  function hasAnyCondition() {
+    return Object.keys(profile.conditions).some(k => profile.conditions[k]);
+  }
 
   function updateProfileSummary() {
     const ids = Object.keys(profile.conditions).filter(k => profile.conditions[k]);
@@ -802,27 +955,58 @@
     }).join(' ') + ' · ' + ids.length + ' activas';
   }
 
-  function buildConditionGrid() {
-    condGrid.innerHTML = '';
+  function findCondLabel(id) {
+    return condGridDiab.querySelector('.cond[data-id="' + id + '"]') ||
+           condGridOther.querySelector('.cond[data-id="' + id + '"]');
+  }
+
+  function buildConditionGrids() {
+    condGridDiab.innerHTML  = '';
+    condGridOther.innerHTML = '';
+
     for (const c of CONDITIONS) {
-      const checked = !!profile.conditions[c.id];
+      const checked   = !!profile.conditions[c.id];
+      const exclusive = !!EXCLUSIVE_IDS[c.id];
+
       const lab = document.createElement('label');
-      lab.className = 'cond' + (checked ? ' on' : '');
+      lab.className = 'cond'
+                    + (checked ? ' on' : '')
+                    + (exclusive ? ' exclusive' : '');
       lab.dataset.id = c.id;
       lab.innerHTML =
         '<input type="checkbox"' + (checked ? ' checked' : '') + '>' +
         '<span class="tick">✓</span>' +
         '<span class="ico">' + c.icon + '</span>' +
         '<span class="lbl">' + c.label + '</span>';
+
       const cb = lab.querySelector('input');
       cb.addEventListener('change', () => {
+        if (cb.checked) {
+          for (const g of EXCLUSIVE_GROUPS) {
+            if (g.ids.indexOf(c.id) === -1) continue;
+            for (const sid of g.ids) {
+              if (sid === c.id) continue;
+              if (!profile.conditions[sid]) continue;
+              profile.conditions[sid] = false;
+              const sibLab = findCondLabel(sid);
+              if (sibLab) {
+                sibLab.classList.remove('on');
+                const sibCb = sibLab.querySelector('input');
+                if (sibCb) sibCb.checked = false;
+              }
+            }
+          }
+        }
+
         profile.conditions[c.id] = cb.checked;
         lab.classList.toggle('on', cb.checked);
         saveProfile();
         updateProfileSummary();
         renderAnalysis();
       });
-      condGrid.appendChild(lab);
+
+      if (c.group === 'diabetes') condGridDiab.appendChild(lab);
+      else                        condGridOther.appendChild(lab);
     }
   }
 
@@ -832,8 +1016,15 @@
     else openProfile();
   });
 
-  buildConditionGrid();
+  buildConditionGrids();
   updateProfileSummary();
+
+  // Si no hay ninguna condición configurada, abrimos el perfil al cargar
+  // para invitar al usuario a configurarlo. Si ya hay datos, se mantiene
+  // colapsado y se cerrará automáticamente al iniciar un escaneo.
+  if (!hasAnyCondition()) {
+    openProfile();
+  }
 
   // ------------------------- extracción de nutrientes -------------------------
 
@@ -858,7 +1049,6 @@
     const kj     = numOr(nu.energy_100g);
     const energy = pick(kcal, kj != null ? kj / 4.184 : null);
 
-    // Micronutrientes: Open Food Facts los guarda en gramos → mg por 100 g.
     const ironG    = numOr(nu.iron_100g);
     const calciumG = numOr(nu.calcium_100g);
 
@@ -905,8 +1095,8 @@
       case 'carbohydrates': return bandScore(v, 15, 60);
       case 'energy':        return bandScore(v, 150, 400);
       case 'fiber':         return positiveScore(v, 3, 6);
-      case 'iron':          return positiveScore(v, 1.5, 4);     // mg / 100 g
-      case 'calcium':       return positiveScore(v, 120, 300);   // mg / 100 g
+      case 'iron':          return positiveScore(v, 1.5, 4);
+      case 'calcium':       return positiveScore(v, 120, 300);
       case 'proteins':
         if (condId === 'ckd') return bandScore(v, 6, 15);
         return positiveScore(v, 8, 20);
@@ -1025,7 +1215,6 @@
 
     const parts = [];
 
-    // ---------- BANNER DE ALÉRGENO (lo primero y más visible) ----------
     const allergenHits = condResults.filter(r => r.isAllergen && r.allergenPresent);
     if (allergenHits.length) {
       const items = allergenHits.map(r => {
@@ -1044,12 +1233,9 @@
       );
     }
 
-    // ---------- PUNTUACIÓN GLOBAL ----------
     let overall = null;
     let overallLabel = '';
     if (activeConds.length) {
-      // Los alérgenos con presencia detectada se excluyen del promedio
-      // porque ya se muestran como aviso aparte (evitan distorsión).
       const valid = condResults.filter(r => r.score != null && !(r.isAllergen && r.allergenPresent));
       if (valid.length) {
         overall = valid.reduce((s, r) => s + r.score, 0) / valid.length;
@@ -1073,7 +1259,6 @@
       );
     }
 
-    // ---------- SEMÁFORO ----------
     const tlRows = [];
     for (const k of ['sugars', 'salt', 'saturated', 'fat']) {
       if (n[k] == null) continue;
@@ -1096,13 +1281,12 @@
       parts.push('<div class="tl-title">Semáforo nutricional</div>' + tlRows.join(''));
     }
 
-    // ---------- BENEFICIOSOS ----------
     const posRows = [];
     const posKeys = [
       ['fiber',    8],
       ['proteins', 25],
-      ['iron',     6],     // mg
-      ['calcium',  400]    // mg
+      ['iron',     6],
+      ['calcium',  400]
     ];
     for (const [k, maxVal] of posKeys) {
       if (n[k] == null) continue;
@@ -1122,11 +1306,9 @@
       parts.push('<div class="tl-title">Beneficiosos</div>' + posRows.join(''));
     }
 
-    // ---------- TARJETAS POR CONDICIÓN ----------
     if (activeConds.length) {
       const cards = [];
       for (const r of condResults) {
-        // Los alérgenos con presencia ya se muestran en el banner rojo.
         if (r.isAllergen && r.allergenPresent) continue;
 
         const cdef = CONDITIONS.find(x => x.id === r.id) || { label: r.id, icon: '' };
@@ -1238,29 +1420,6 @@
     else { clearProduct(); lastLookupCode = ''; }
 
     if (running) stop('Código detectado');
-  }
-
-  function loadScript(src) {
-    return new Promise((resolve, reject) => {
-      const s = document.createElement('script');
-      s.src = src; s.async = true;
-      s.onload = () => resolve();
-      s.onerror = () => { s.remove(); reject(new Error('No se pudo cargar ' + src)); };
-      document.head.appendChild(s);
-    });
-  }
-
-  async function loadZXing() {
-    if (window.ZXing) return window.ZXing;
-    let lastErr;
-    for (const url of ZXING_URLS) {
-      try {
-        log('ZXing: cargando…');
-        await loadScript(url);
-        if (window.ZXing) { log('ZXing: cargado', 'ok'); return window.ZXing; }
-      } catch (e) { lastErr = e; log('ZXing: fallo al cargar', 'warn'); }
-    }
-    throw lastErr || new Error('No se pudo cargar ZXing');
   }
 
   function setupZXingCore(ZX) {
@@ -1423,7 +1582,7 @@
         const result = zxingDecode(canvas);
         if (result) { flashRect('hit'); show(result.getText()); return true; }
       } catch (e) {
-        // Nada decodificado en este intento — lo esperado.
+        // Nada decodificado en este intento.
       }
     }
     return false;
@@ -1476,7 +1635,11 @@
   }
 
   async function start() {
-    if (running) return;
+    if (running || !systemReady) return;
+
+    // Al iniciar un escaneo, colapsamos el perfil — así lo pide el flujo:
+    // el usuario ya ha configurado lo que necesitaba y ahora quiere ver el
+    // producto. Si por algún motivo lo abrió manualmente, también se cierra.
     if (isProfileOpen()) closeProfile();
 
     setRunning(true);
@@ -1526,20 +1689,24 @@
       log('Detector nativo no disponible (esperado en iOS Safari)', 'warn');
     }
 
-    setStatus(nativeDetector ? 'Escaneando…' : 'Cargando decodificador…');
+    if (preloadedZXing) {
+      zxingCore = setupZXingCore(preloadedZXing);
+    } else {
+      setStatus('Cargando decodificador…');
+      loadZXingLibrary().then((ZX) => {
+        if (!running) return;
+        preloadedZXing = ZX;
+        zxingCore = setupZXingCore(ZX);
+      }).catch((e) => {
+        log('ZXing no cargó: ' + (e.message || e), nativeDetector ? 'warn' : 'err');
+        if (!nativeDetector) {
+          setStatus('Error: no hay decodificador disponible');
+          stop('Sin decodificador');
+        }
+      });
+    }
 
-    loadZXing().then((ZX) => {
-      if (!running) return;
-      zxingCore = setupZXingCore(ZX);
-      if (!nativeDetector) setStatus('Escaneando…');
-    }).catch((e) => {
-      log('ZXing no cargó: ' + (e.message || e), nativeDetector ? 'warn' : 'err');
-      if (!nativeDetector) {
-        setStatus('Error: no hay decodificador disponible');
-        stop('Sin decodificador');
-      }
-    });
-
+    setStatus('Escaneando…');
     runLoop();
   }
 
@@ -1567,7 +1734,7 @@
     setStatus(reason || 'Detenido');
     log(reason ? '--- detenido: ' + reason + ' ---' : '--- detenido ---');
 
-    if (!isProfileOpen()) {
+    if (systemReady && !isProfileOpen()) {
       showToast('Toca la pantalla para escanear', TOAST_MS);
     }
   }
@@ -1575,6 +1742,7 @@
   // ------------------------------------------------------------- wiring
   tapCatch.addEventListener('click', (e) => {
     e.preventDefault();
+    if (!systemReady) return;
     if (isProfileOpen()) { closeProfile(); return; }
     if (!running) start();
   });
@@ -1617,7 +1785,10 @@
     if (document.hidden && running) stop('Pausado');
   });
 
-  showToast('Toca la pantalla para escanear', TOAST_MS);
+  // ============================================================
+  // =====================  ARRANQUE  ===========================
+  // ============================================================
+  preload();
 })();
 </script>
 </body>
