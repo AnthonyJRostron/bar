@@ -104,20 +104,14 @@
   #product .badge.grade-d { background: #7a2e00; color: #ffab91; }
   #product .badge.grade-e { background: #6b1c1c; color: #ef9a9a; }
 
+  /* Ingredients — appears AFTER the analysis block */
   #ingredients {
-    margin-top: 10px; font-size: 12px; color: #9aa0a6; line-height: 1.5;
+    margin-top: 18px; padding-top: 14px; border-top: 1px solid #2a2a2e;
+    font-size: 12px; color: #9aa0a6; line-height: 1.55;
     display: none;
   }
   #ingredients.visible { display: block; }
-  #ingredients b { color: #d0d0d5; font-weight: 700; display: block; margin-bottom: 3px; }
-
-  #lookupLink {
-    display: block; margin-top: 16px; text-align: center;
-    padding: 13px 16px; border-radius: 10px;
-    background: #1f6feb; color: #fff; text-decoration: none;
-    font-weight: 600; font-size: 14px;
-  }
-  #lookupLink[hidden] { display: none; }
+  #ingredients b { color: #d0d0d5; font-weight: 700; display: block; margin-bottom: 4px; }
 
   #bar {
     flex: 0 0 auto; display: flex; gap: 10px;
@@ -315,10 +309,9 @@
         <div class="name"></div>
         <div class="brand"></div>
         <div class="meta"></div>
-        <div id="ingredients"></div>
         <div id="analysis"></div>
+        <div id="ingredients"></div>
       </div>
-      <a id="lookupLink" href="#" target="_blank" rel="noopener noreferrer" hidden>View on Barcode Lookup ↗</a>
     </div>
   </div>
 
@@ -344,7 +337,6 @@
   const metaEl    = productEl.querySelector('.meta');
   const ingredientsEl = document.getElementById('ingredients');
   const analysisEl    = document.getElementById('analysis');
-  const lookupLinkEl = document.getElementById('lookupLink');
   const statusEl  = document.getElementById('status');
   const logEl     = document.getElementById('log');
   const startBtn  = document.getElementById('start');
@@ -365,7 +357,6 @@
   const CROP_PADDING  = 0.08; // extra margin around the viewfinder box
 
   const OFF_BASE = 'https://world.openfoodfacts.org/api/v2/product/';
-  const BARCODE_LOOKUP_BASE = 'https://www.barcodelookup.com/';
   const CORS_PROXIES = [
     { name: 'corsproxy.io',  build: (u) => 'https://corsproxy.io/?url=' + encodeURIComponent(u) },
     { name: 'allorigins',    build: (u) => 'https://api.allorigins.win/raw?url=' + encodeURIComponent(u) },
@@ -575,6 +566,7 @@
       metaEl.appendChild(b);
     }
 
+    // Ingredients are rendered after the analysis, in their own slot.
     if (p.ingredients_text) {
       ingredientsEl.innerHTML = '<b>Ingredients</b>' + escapeHtml(p.ingredients_text);
       ingredientsEl.classList.add('visible');
@@ -634,17 +626,19 @@
   const PROFILE_KEY = 'barcodeScanner.patient.v1';
 
   const CONDITIONS = [
-    { id: 'diabetes',    label: 'Type 2 Diabetes',        icon: '🩸' },
-    { id: 'hbp',         label: 'High Blood Pressure',    icon: '❤️' },
-    { id: 'cholesterol', label: 'High Cholesterol',       icon: '🫀' },
-    { id: 'ckd',         label: 'Kidney Disease',         icon: '🫘' },
-    { id: 'obesity',     label: 'Weight Management',      icon: '⚖️' },
-    { id: 'gout',        label: 'Gout',                   icon: '🦴' },
-    { id: 'ibs',         label: 'IBS / Gut Sensitivity',  icon: '🌀' },
-    { id: 'celiac',      label: 'Coeliac (Gluten)',       icon: '🌾' },
-    { id: 'lactose',     label: 'Lactose Intolerance',    icon: '🥛' },
-    { id: 'nutallergy',  label: 'Nut Allergy',            icon: '🥜' },
-    { id: 'pregnancy',   label: 'Pregnancy',              icon: '🤰' }
+    { id: 'type1diabetes', label: 'Type 1 Diabetes',      icon: '💉' },
+    { id: 'diabetes',      label: 'Type 2 Diabetes',      icon: '🩸' },
+    { id: 'prediabetes',   label: 'Prediabetes',          icon: '🩺' },
+    { id: 'hbp',           label: 'High Blood Pressure',  icon: '❤️' },
+    { id: 'cholesterol',   label: 'High Cholesterol',     icon: '🫀' },
+    { id: 'ckd',           label: 'Kidney Disease',       icon: '🫘' },
+    { id: 'obesity',       label: 'Weight Management',    icon: '⚖️' },
+    { id: 'gout',          label: 'Gout',                 icon: '🦴' },
+    { id: 'ibs',           label: 'IBS / Gut Sensitivity',icon: '🌀' },
+    { id: 'celiac',        label: 'Coeliac (Gluten)',     icon: '🌾' },
+    { id: 'lactose',       label: 'Lactose Intolerance',  icon: '🥛' },
+    { id: 'nutallergy',    label: 'Nut Allergy',          icon: '🥜' },
+    { id: 'pregnancy',     label: 'Pregnancy',            icon: '🤰' }
   ];
 
   const NUTRIENT_LABELS = {
@@ -663,17 +657,22 @@
 
   // Which nutrients matter for which condition, and how much.
   const CONDITION_RULES = {
-    diabetes:    { nutrients: { sugars: 3, carbohydrates: 1.5, fiber: 2 } },
-    hbp:         { nutrients: { salt: 4, saturated: 1 } },
-    cholesterol: { nutrients: { saturated: 3, fat: 1.5, fiber: 2 } },
-    ckd:         { nutrients: { salt: 4, proteins: 1.5 } },
-    obesity:     { nutrients: { energy: 2, sugars: 2, saturated: 2, fiber: 1.5 } },
-    gout:        { nutrients: { sugars: 2, proteins: 1.5, energy: 1 } },
-    ibs:         { nutrients: { fat: 1.5, sugars: 1.5, fiber: 1 } },
-    pregnancy:   { nutrients: { salt: 1, sugars: 1.5, saturated: 1.5, proteins: 1 } },
-    celiac:      { allergen: 'gluten' },
-    lactose:     { allergen: 'milk' },
-    nutallergy:  { allergen: 'nuts' }
+    // Type 1: focus on sugar spikes + carb awareness, fibre slows absorption.
+    type1diabetes: { nutrients: { sugars: 2.5, carbohydrates: 1.5, fiber: 2 } },
+    // Type 2: sugar + refined carbs, fibre strongly beneficial.
+    diabetes:      { nutrients: { sugars: 3, carbohydrates: 1.5, fiber: 2 } },
+    // Prediabetes: same idea, slightly heavier weight on total carbs.
+    prediabetes:   { nutrients: { sugars: 3, carbohydrates: 2, fiber: 2, energy: 1 } },
+    hbp:           { nutrients: { salt: 4, saturated: 1 } },
+    cholesterol:   { nutrients: { saturated: 3, fat: 1.5, fiber: 2 } },
+    ckd:           { nutrients: { salt: 4, proteins: 1.5 } },
+    obesity:       { nutrients: { energy: 2, sugars: 2, saturated: 2, fiber: 1.5 } },
+    gout:          { nutrients: { sugars: 2, proteins: 1.5, energy: 1 } },
+    ibs:           { nutrients: { fat: 1.5, sugars: 1.5, fiber: 1 } },
+    pregnancy:     { nutrients: { salt: 1, sugars: 1.5, saturated: 1.5, proteins: 1 } },
+    celiac:        { allergen: 'gluten' },
+    lactose:       { allergen: 'milk' },
+    nutallergy:    { allergen: 'nuts' }
   };
 
   const DEFAULT_PROFILE = { age: '', sex: '', weight: '', conditions: {} };
@@ -931,6 +930,7 @@
       return { id: id, score: r.score, alerts: r.alerts || [], good: r.good || [] };
     });
 
+    // ---- overall score (only if we actually have something) ----
     let overall = null;
     let overallLabel = '';
     if (activeConds.length) {
@@ -938,81 +938,88 @@
       if (valid.length) {
         overall = valid.reduce((s, r) => s + r.score, 0) / valid.length;
         overallLabel = 'Overall for your profile';
-      } else {
-        overallLabel = 'Nutrition data missing for your conditions';
       }
     } else {
       overall = generalScore(n);
       overallLabel = 'General health score';
     }
 
-    const col = scoreColor(overall);
-    const overallTxt = overall == null ? '?' : overall.toFixed(1);
     const parts = [];
 
-    // -------- headline score --------
-    parts.push(
-      '<div class="score-wrap">' +
-        '<div class="score-circle" style="--c:' + col + '">' + overallTxt + '</div>' +
-        '<div class="score-meta">' +
-          '<div class="score-title" style="color:' + col + '">' + scoreWord(overall) + '</div>' +
-          '<div class="score-sub">' + overallLabel + ' · values per 100 g</div>' +
-        '</div>' +
-      '</div>'
-    );
+    // ---- headline score (hidden if null) ----
+    if (overall != null) {
+      const col = scoreColor(overall);
+      parts.push(
+        '<div class="score-wrap">' +
+          '<div class="score-circle" style="--c:' + col + '">' + overall.toFixed(1) + '</div>' +
+          '<div class="score-meta">' +
+            '<div class="score-title" style="color:' + col + '">' + scoreWord(overall) + '</div>' +
+            '<div class="score-sub">' + overallLabel + ' · values per 100 g</div>' +
+          '</div>' +
+        '</div>'
+      );
+    }
 
-    // -------- traffic lights --------
-    parts.push('<div class="tl-title">Nutrition traffic lights</div>');
-    const tlKeys = ['sugars', 'salt', 'saturated', 'fat'];
-    for (const k of tlKeys) {
-      const val = n[k];
-      const lvl = val == null ? null : tlLevel(k, val);
+    // ---- traffic lights (only rows with data) ----
+    const tlRows = [];
+    for (const k of ['sugars', 'salt', 'saturated', 'fat']) {
+      if (n[k] == null) continue;
+      const lvl = tlLevel(k, n[k]);
       const c = lvl === 'green' ? '#22c55e'
               : lvl === 'amber' ? '#fbbf24'
               : lvl === 'red'   ? '#ef4444'
               : '#3a3a40';
-      const pct = val == null ? 0 : Math.min(100, (val / (TL[k].red * 1.6)) * 100);
-      parts.push(
+      const pct = Math.min(100, (n[k] / (TL[k].red * 1.6)) * 100);
+      tlRows.push(
         '<div class="tl-row">' +
           '<span class="tl-dot" style="background:' + c + '"></span>' +
           '<span class="tl-name">' + TL[k].label + '</span>' +
           '<span class="tl-bar"><span class="tl-fill" style="width:' + pct + '%;background:' + c + '"></span></span>' +
-          '<span class="tl-val">' + fmtNutrient(k, val) + '</span>' +
+          '<span class="tl-val">' + fmtNutrient(k, n[k]) + '</span>' +
         '</div>'
       );
     }
+    if (tlRows.length) {
+      parts.push('<div class="tl-title">Nutrition traffic lights</div>' + tlRows.join(''));
+    }
 
-    // -------- beneficial nutrients --------
-    parts.push('<div class="tl-title">Beneficial</div>');
-    const posKeys = [['fiber', 8], ['proteins', 25]];
-    for (const [k, maxVal] of posKeys) {
-      const val = n[k];
+    // ---- beneficial nutrients (only rows with data) ----
+    const posRows = [];
+    for (const [k, maxVal] of [['fiber', 8], ['proteins', 25]]) {
+      if (n[k] == null) continue;
       const s = scoreNutrient(k, n);
       const c = scoreColor(s);
-      const pct = val == null ? 0 : Math.min(100, (val / maxVal) * 100);
-      parts.push(
+      const pct = Math.min(100, (n[k] / maxVal) * 100);
+      posRows.push(
         '<div class="tl-row">' +
           '<span class="tl-dot" style="background:' + c + '"></span>' +
           '<span class="tl-name">' + NUTRIENT_LABELS[k] + '</span>' +
           '<span class="tl-bar"><span class="tl-fill" style="width:' + pct + '%;background:' + c + '"></span></span>' +
-          '<span class="tl-val">' + fmtNutrient(k, val) + '</span>' +
+          '<span class="tl-val">' + fmtNutrient(k, n[k]) + '</span>' +
         '</div>'
       );
     }
+    if (posRows.length) {
+      parts.push('<div class="tl-title">Beneficial</div>' + posRows.join(''));
+    }
 
-    // -------- per-condition cards --------
+    // ---- per-condition cards (only cards with something to show) ----
     if (activeConds.length) {
-      parts.push('<div class="tl-title">For your conditions</div>');
-      parts.push('<div class="cond-list">');
+      const cards = [];
       for (const r of condResults) {
         const cdef = CONDITIONS.find(x => x.id === r.id) || { label: r.id, icon: '' };
         const s = r.score;
+        const hasAlerts = r.alerts && r.alerts.length > 0;
+        const hasGood   = r.good && r.good.length > 0;
+        if (s == null && !hasAlerts && !hasGood) continue; // nothing to say
+
         const cls = s == null ? '' : s >= 7.5 ? 'good' : s >= 5 ? 'warn' : 'bad';
         const notes = [];
-        if (r.alerts && r.alerts.length) notes.push('⚠ ' + r.alerts.join(' · '));
-        else if (s != null && s >= 7.5)   notes.push('✓ No major concerns');
-        if (r.good && r.good.length)      notes.push('✓ ' + r.good.join(' · '));
-        parts.push(
+        if (hasAlerts) notes.push('⚠ ' + r.alerts.join(' · '));
+        else if (s != null && s >= 7.5) notes.push('✓ No major concerns');
+        if (hasGood) notes.push('✓ ' + r.good.join(' · '));
+
+        cards.push(
           '<div class="cond-card ' + cls + '">' +
             '<div class="cond-head">' +
               '<span class="ico">' + cdef.icon + '</span>' +
@@ -1025,8 +1032,14 @@
           '</div>'
         );
       }
-      parts.push('</div>');
-    } else {
+      if (cards.length) {
+        parts.push(
+          '<div class="tl-title">For your conditions</div>' +
+          '<div class="cond-list">' + cards.join('') + '</div>'
+        );
+      }
+    } else if (overall != null) {
+      // No conditions selected but we do have a general score — nudge the user.
       parts.push(
         '<div class="profile-note" style="margin-top:14px">' +
         'Add health conditions in your profile for personalised scoring.' +
@@ -1034,10 +1047,14 @@
       );
     }
 
-    parts.push('<div class="profile-note">Guidance only — not medical advice.</div>');
-
-    analysisEl.innerHTML = parts.join('');
-    analysisEl.classList.add('visible');
+    if (parts.length) {
+      parts.push('<div class="profile-note">Guidance only — not medical advice.</div>');
+      analysisEl.innerHTML = parts.join('');
+      analysisEl.classList.add('visible');
+    } else {
+      analysisEl.innerHTML = '';
+      analysisEl.classList.remove('visible');
+    }
   }
 
   // ============================================================
@@ -1100,14 +1117,9 @@
     if (parsed) lookupOFF(text);
     else { clearProduct(); lastLookupCode = ''; }
 
-    // Every hit here is a genuine 1D barcode (QR support was removed), so
-    // always reveal the Barcode Lookup link and stop the camera — the user
-    // has what they came for and can browse straight to it, or tap Start
-    // again to scan another item.
-    const digits = text.replace(/\D/g, '');
-    const query = digits.length >= 6 ? digits : text;
-    lookupLinkEl.href = BARCODE_LOOKUP_BASE + encodeURIComponent(query);
-    lookupLinkEl.hidden = false;
+    // Every hit here is a genuine 1D barcode (QR support was removed).
+    // Stop the camera so the user can read the analysis; tap Start again
+    // to scan another item.
     if (running) stop('Barcode detected — tap Start to scan again');
   }
 
@@ -1381,7 +1393,6 @@
     codeEl.textContent = '—';
     gs1El.textContent = '';
     clearProduct();
-    lookupLinkEl.hidden = true;
     lastText = '';
     lastLookupCode = '';
     log('--- start ---');
