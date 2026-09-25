@@ -8,7 +8,7 @@
 <style>
   :root { color-scheme: dark; }
   * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
-  html, body { margin: 0; height: 100%; }
+  html, body { margin: 0; height: 100%; overscroll-behavior: none; }
   body {
     background: #000; color: #fff;
     font: 16px/1.4 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
@@ -37,8 +37,6 @@
     box-shadow: 0 0 0 9999px rgba(0,0,0,0.45), 0 0 22px rgba(110,231,168,0.75);
   }
 
-  /* Full-stage tap catcher — sits below the panel/topbar, above the video.
-     This is what turns "touch anywhere" into "start scanning". */
   #tapCatch {
     position: absolute; inset: 0;
     z-index: 1;
@@ -46,9 +44,9 @@
     cursor: pointer;
     user-select: none; -webkit-user-select: none;
   }
-  #tapCatch.off { pointer-events: none; }
+  #tapCatch.off      { pointer-events: none; }
+  #tapCatch.blocked  { pointer-events: none; }
 
-  /* Small floating controls while running (stop, torch) */
   #fabs {
     position: absolute;
     top: calc(10px + env(safe-area-inset-top));
@@ -70,69 +68,84 @@
   .fab[hidden] { display: none; }
   #torchFab.on { background: #fbbf24; color: #1a1a1a; border-color: #fbbf24; }
 
-  /* 3-second toast */
   #toast {
     position: absolute;
     left: 50%; top: 34%;
     transform: translate(-50%, -50%);
-    background: rgba(20,20,24,0.92);
-    border: 1px solid rgba(255,255,255,0.12);
-    padding: 14px 22px;
-    border-radius: 14px;
+    background: rgba(20,20,24,0.95);
+    border: 1px solid rgba(255,255,255,0.14);
+    padding: 16px 22px 14px;
+    border-radius: 16px;
     font-size: 15px; font-weight: 700;
     color: #fff;
     z-index: 5;
     opacity: 0;
-    transition: opacity .25s ease;
+    transition: opacity .3s ease;
     pointer-events: none;
     text-align: center;
-    max-width: 82%;
-    box-shadow: 0 8px 30px rgba(0,0,0,0.6);
-    -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px);
+    min-width: 250px;
+    max-width: 86%;
+    box-shadow: 0 10px 34px rgba(0,0,0,0.7);
+    -webkit-backdrop-filter: blur(12px); backdrop-filter: blur(12px);
     line-height: 1.35;
   }
   #toast.on { opacity: 1; }
+  #toast .toast-text { display: block; }
+  #toast .toast-progress {
+    height: 0; margin: 0; opacity: 0;
+    background: rgba(255,255,255,0.14);
+    border-radius: 4px; overflow: hidden;
+    transition: height .3s ease, margin .3s ease, opacity .3s ease;
+  }
+  #toast .toast-bar {
+    display: block; height: 100%; width: 0%;
+    background: linear-gradient(90deg, #1f6feb 0%, #6ee7a8 100%);
+    border-radius: 4px;
+    transition: width .2s ease-out;
+  }
+  #toast .toast-pct {
+    height: 0; margin: 0; opacity: 0;
+    font-size: 11px; color: #9aa0a6; text-align: right;
+    font-variant-numeric: tabular-nums;
+    transition: height .3s ease, margin .3s ease, opacity .3s ease;
+  }
+  #toast.loading .toast-progress { height: 8px; margin: 12px 0 6px; opacity: 1; }
+  #toast.loading .toast-pct { height: auto; margin: 0; opacity: 1; }
 
   #topbar {
     position: absolute; top: 0; left: 0; right: 0;
-    padding: calc(10px + env(safe-area-inset-top)) 12px 0;
+    padding: calc(12px + env(safe-area-inset-top)) 12px 0;
     z-index: 2;
-    display: flex; flex-direction: column; align-items: center; gap: 8px;
+    display: flex; justify-content: center;
     pointer-events: none;
   }
-
   #status {
     font-size: 12px; color: #9aa0a6; text-align: center;
     text-shadow: 0 1px 3px rgba(0,0,0,0.95);
-    padding-right: 92px; /* avoid FABs */
+    max-width: 70%;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
   }
-
-  #logWrap {
-    width: 100%; max-width: 460px;
-    background: rgba(0,0,0,0.72);
-    border: 1px solid rgba(255,255,255,0.08);
-    border-radius: 10px;
-    padding: 6px 10px;
-    pointer-events: none;
-    -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px);
-  }
-  #log {
-    margin: 0; font-family: ui-monospace, monospace;
-    font-size: 10.5px; line-height: 1.45; color: #b8bcc2;
-    white-space: pre-wrap; word-break: break-word;
-    max-height: 62px; overflow: hidden;
-  }
-  #log .err { color: #ef9a9a; }
-  #log .ok  { color: #6ee7a8; }
-  #log .warn{ color: #fbbf24; }
+  body.running #status { padding-right: 92px; }
 
   #panel {
     position: absolute; left: 0; right: 0; bottom: 0;
     padding: 24px 16px calc(16px + env(safe-area-inset-bottom));
     background: linear-gradient(transparent, rgba(0,0,0,.92) 35%);
-    max-height: 62%; overflow-y: auto; -webkit-overflow-scrolling: touch;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior: contain;
     z-index: 2;
+    max-height: 82%;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(255,255,255,0.22) rgba(255,255,255,0.04);
+    scroll-behavior: smooth;
   }
+  body.running #panel { max-height: 46%; }
+
+  #panel::-webkit-scrollbar { width: 6px; }
+  #panel::-webkit-scrollbar-track { background: rgba(255,255,255,0.04); border-radius: 3px; }
+  #panel::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.22); border-radius: 3px; }
+  #panel::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.35); }
 
   #code {
     font-size: clamp(20px, 7vw, 38px); font-weight: 700;
@@ -140,11 +153,6 @@
     transition: color .12s ease;
   }
   #code.hit { color: #6ee7a8; }
-
-  #gs1 {
-    margin-top: 8px; font-size: 13px; color: #9aa0a6;
-    text-align: center; line-height: 1.6;
-  }
 
   #product {
     margin-top: 14px; padding-top: 12px; border-top: 1px solid #2a2a2e;
@@ -161,7 +169,6 @@
   #product .badge.grade-d { background: #7a2e00; color: #ffab91; }
   #product .badge.grade-e { background: #6b1c1c; color: #ef9a9a; }
 
-  /* Ingredients — appear AFTER the analysis block */
   #ingredients {
     margin-top: 18px; padding-top: 14px; border-top: 1px solid #2a2a2e;
     font-size: 12px; color: #9aa0a6; line-height: 1.55;
@@ -170,7 +177,7 @@
   #ingredients.visible { display: block; }
   #ingredients b { color: #d0d0d5; font-weight: 700; display: block; margin-bottom: 4px; }
 
-  /* ===================== PATIENT PROFILE ===================== */
+  /* ===================== PERFIL ===================== */
   #profileCard {
     margin-bottom: 12px;
     border: 1px solid rgba(255,255,255,0.09);
@@ -178,6 +185,11 @@
     background: rgba(18,18,22,0.88);
     -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px);
     overflow: hidden;
+    transition: box-shadow .18s ease, border-color .18s ease;
+  }
+  #profileCard.open {
+    border-color: rgba(31,111,235,0.55);
+    box-shadow: 0 0 0 3px rgba(31,111,235,0.12);
   }
   #profileToggle {
     width: 100%;
@@ -190,26 +202,13 @@
   #profileToggle .ptitle { flex: 0 0 auto; }
   #profileSummary {
     margin-left: auto; color: #9aa0a6; font-weight: 400; font-size: 12px;
-    white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 48%;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 62%;
   }
   #profileToggle .chev { color: #9aa0a6; transition: transform .2s; flex: 0 0 auto; }
   #profileCard.open #profileToggle .chev { transform: rotate(180deg); }
 
   #profileBody { display: none; padding: 0 14px 14px; }
   #profileCard.open #profileBody { display: block; }
-
-  .field-row { display: flex; gap: 8px; margin-bottom: 12px; }
-  .field { flex: 1; display: flex; flex-direction: column; gap: 4px; min-width: 0; }
-  .field label {
-    font-size: 10.5px; color: #9aa0a6;
-    text-transform: uppercase; letter-spacing: .5px;
-  }
-  .field input, .field select {
-    width: 100%; padding: 9px 10px; font: inherit; font-size: 14px;
-    background: #0d0d11; color: #fff;
-    border: 1px solid #2a2a2e; border-radius: 8px;
-  }
-  .field input:focus, .field select:focus { outline: none; border-color: #1f6feb; }
 
   .cond-grid {
     display: grid;
@@ -235,13 +234,60 @@
   }
   .cond.on { background: #14223c; border-color: #1f6feb; }
   .cond.on .tick { background: #1f6feb; border-color: #1f6feb; color: #fff; }
+  .cond.exclusive .tick { border-radius: 50%; }
   .cond .ico { font-size: 15px; flex: 0 0 auto; }
 
-  .profile-note { font-size: 11px; color: #6b6b70; margin-top: 12px; text-align: center; }
+  .profile-note { font-size: 11px; color: #6b6b70; margin-top: 12px; text-align: center; line-height: 1.55; }
+  .profile-note.warn { color: #fbbf24; }
 
-  /* ===================== ANALYSIS ===================== */
+  /* ===================== ANÁLISIS ===================== */
   #analysis { display: none; }
   #analysis.visible { display: block; }
+
+  /* Banner de alérgenos — dos niveles: rojo (contiene/puede contener)
+     y ámbar (verificar etiqueta). */
+  .allergen-banner {
+    display: flex; gap: 14px; align-items: flex-start;
+    border-radius: 14px;
+    padding: 15px 16px;
+    margin: 14px 0 6px;
+  }
+  .allergen-banner.danger {
+    background: linear-gradient(135deg, #7f1d1d 0%, #991b1b 100%);
+    border: 2px solid #ef4444;
+    box-shadow: 0 0 0 3px rgba(239,68,68,0.15), 0 10px 28px -8px rgba(239,68,68,0.7);
+    animation: allergen-pulse 2.2s ease-in-out infinite;
+  }
+  @keyframes allergen-pulse {
+    0%, 100% { box-shadow: 0 0 0 3px rgba(239,68,68,0.15), 0 10px 28px -8px rgba(239,68,68,0.7); }
+    50%      { box-shadow: 0 0 0 7px rgba(239,68,68,0.28), 0 10px 34px -6px rgba(239,68,68,1); }
+  }
+  .allergen-banner.caution {
+    background: linear-gradient(135deg, #78350f 0%, #92400e 100%);
+    border: 2px solid #f59e0b;
+    box-shadow: 0 0 0 3px rgba(245,158,11,0.15), 0 10px 28px -8px rgba(245,158,11,0.65);
+  }
+  .allergen-banner .aw-icon {
+    font-size: 30px; line-height: 1; flex: 0 0 auto;
+    filter: drop-shadow(0 2px 4px rgba(0,0,0,0.5));
+  }
+  .allergen-banner .aw-body { flex: 1; min-width: 0; }
+  .allergen-banner .aw-title {
+    font-size: 14.5px; font-weight: 800; letter-spacing: .8px;
+    color: #fff; text-transform: uppercase;
+  }
+  .allergen-banner .aw-item {
+    font-size: 13.5px; margin-top: 6px; line-height: 1.45;
+    font-weight: 600;
+  }
+  .allergen-banner.danger  .aw-item { color: #fee2e2; }
+  .allergen-banner.caution .aw-item { color: #fef3c7; }
+  .allergen-banner .aw-item .ico { font-size: 16px; margin-right: 4px; }
+  .allergen-banner .aw-sub {
+    font-size: 11px; margin-top: 8px; line-height: 1.5;
+    color: rgba(255,255,255,0.72); font-weight: 400;
+    border-top: 1px solid rgba(255,255,255,0.15); padding-top: 8px;
+  }
 
   .score-wrap {
     display: flex; align-items: center; gap: 14px;
@@ -284,6 +330,7 @@
   .cond-card.good { border-left-color: #22c55e; }
   .cond-card.warn { border-left-color: #fbbf24; }
   .cond-card.bad  { border-left-color: #ef4444; }
+  .cond-card.neutral { border-left-color: #6b7280; }
   .cond-head {
     display: flex; align-items: center; gap: 8px;
     font-size: 13px; font-weight: 700;
@@ -293,9 +340,11 @@
     margin-left: auto; font-size: 13.5px;
     font-variant-numeric: tabular-nums; font-weight: 800;
   }
+  .cond-score.txt { font-size: 10.5px; letter-spacing: .4px; text-transform: uppercase; }
   .cond-note {
     font-size: 11.5px; color: #9aa0a6; margin-top: 5px; line-height: 1.5;
   }
+  .cond-note strong { color: #e5e7eb; }
 </style>
 </head>
 <body>
@@ -303,9 +352,13 @@
   <div id="stage">
     <video id="video" playsinline webkit-playsinline muted autoplay></video>
     <div id="overlay"><div id="rect"></div></div>
-    <div id="tapCatch"></div>
+    <div id="tapCatch" class="blocked"></div>
 
-    <div id="toast"></div>
+    <div id="toast">
+      <span class="toast-text">Preparando el escáner…</span>
+      <div class="toast-progress"><span class="toast-bar"></span></div>
+      <div class="toast-pct">0%</div>
+    </div>
 
     <div id="fabs" hidden>
       <button id="torchFab" class="fab" hidden title="Linterna">🔦</button>
@@ -313,8 +366,7 @@
     </div>
 
     <div id="topbar">
-      <div id="status">Toca la pantalla para escanear</div>
-      <div id="logWrap"><pre id="log">listo.</pre></div>
+      <div id="status">Preparando…</div>
     </div>
 
     <div id="panel">
@@ -327,35 +379,26 @@
           <span class="chev">▾</span>
         </button>
         <div id="profileBody">
-          <div class="field-row">
-            <div class="field">
-              <label for="pAge">Edad</label>
-              <input id="pAge" type="number" min="0" max="120" inputmode="numeric" placeholder="—">
-            </div>
-            <div class="field">
-              <label for="pSex">Sexo</label>
-              <select id="pSex">
-                <option value="">—</option>
-                <option value="female">Mujer</option>
-                <option value="male">Hombre</option>
-                <option value="other">Otro</option>
-              </select>
-            </div>
-            <div class="field">
-              <label for="pWeight">Peso kg</label>
-              <input id="pWeight" type="number" min="0" max="400" inputmode="decimal" placeholder="—">
-            </div>
+          <div class="tl-title" style="margin-top:6px">Diabetes</div>
+          <div class="cond-grid" id="condGridDiabetes"></div>
+
+          <div class="tl-title">Otras condiciones de salud</div>
+          <div class="cond-grid" id="condGridOther"></div>
+
+          <div class="profile-note">
+            Las opciones de diabetes son excluyentes entre sí.<br>
+            Guardado solo en este dispositivo · no es consejo médico.<br>
+            Las puntuaciones y alertas son orientativas y no sustituyen el consejo
+            de un profesional sanitario.
           </div>
-
-          <div class="tl-title" style="margin-top:0">Condiciones de salud</div>
-          <div class="cond-grid" id="condGrid"></div>
-
-          <div class="profile-note">Guardado solo en este dispositivo · no es consejo médico</div>
+          <div class="profile-note warn">
+            Si tienes celiaquía u otra alergia alimentaria, la única garantía
+            es leer la etiqueta del envase físico.
+          </div>
         </div>
       </div>
 
       <div id="code">—</div>
-      <div id="gs1"></div>
       <div id="product">
         <div class="name"></div>
         <div class="brand"></div>
@@ -375,7 +418,6 @@
   const stage     = document.getElementById('stage');
   const rectEl    = document.getElementById('rect');
   const codeEl    = document.getElementById('code');
-  const gs1El     = document.getElementById('gs1');
   const productEl = document.getElementById('product');
   const nameEl    = productEl.querySelector('.name');
   const brandEl   = productEl.querySelector('.brand');
@@ -383,24 +425,23 @@
   const ingredientsEl = document.getElementById('ingredients');
   const analysisEl    = document.getElementById('analysis');
   const statusEl  = document.getElementById('status');
-  const logEl     = document.getElementById('log');
+  const panelEl   = document.getElementById('panel');
   const tapCatch  = document.getElementById('tapCatch');
   const toastEl   = document.getElementById('toast');
+  const toastTextEl = toastEl.querySelector('.toast-text');
+  const toastBarEl  = toastEl.querySelector('.toast-bar');
+  const toastPctEl  = toastEl.querySelector('.toast-pct');
   const fabsEl    = document.getElementById('fabs');
   const stopFab   = document.getElementById('stopFab');
   const torchFab  = document.getElementById('torchFab');
 
-  // ------------------------------------------------------------- constants
-  // Solo formatos 1D — el soporte de QR / 2D se ha eliminado por completo.
+  // ------------------------------------------------------------- constantes
   const BARCODE_FORMATS = ['ean_13', 'ean_8', 'upc_a', 'upc_e',
                             'code_128', 'code_39', 'code_93', 'itf', 'codabar'];
 
-  // Un código por debajo de esta longitud se considera un falso positivo
-  // (ruido, reflejos, fragmentos) y se ignora sin detener el escaneo.
   const MIN_CODE_LENGTH = 8;
+  const MIN_PRELOAD_MS  = 3000;
 
-  // Recortamos solo la región del visor del vídeo a resolución (casi)
-  // nativa y decodificamos ese recorte — no el fotograma completo reducido.
   const CROP_MAX_DIM  = 1400;
   const CROP_PADDING  = 0.08;
 
@@ -416,51 +457,13 @@
     'https://cdn.jsdelivr.net/npm/@zxing/library@0.21.3/umd/index.min.js'
   ];
 
-  const GS1_PREFIXES = {
-    '000':'EE.UU./Canadá','001':'EE.UU./Canadá','002':'EE.UU./Canadá','003':'EE.UU./Canadá',
-    '004':'EE.UU./Canadá','005':'EE.UU./Canadá','006':'EE.UU./Canadá','007':'EE.UU./Canadá',
-    '008':'EE.UU./Canadá','009':'EE.UU./Canadá','010':'EE.UU./Canadá','011':'EE.UU./Canadá',
-    '012':'EE.UU./Canadá','013':'EE.UU./Canadá','014':'EE.UU./Canadá','015':'EE.UU./Canadá',
-    '016':'EE.UU./Canadá','017':'EE.UU./Canadá','018':'EE.UU./Canadá','019':'EE.UU./Canadá',
-    '020':'EE.UU./Canadá (restringido)','029':'EE.UU./Canadá (restringido)',
-    '030':'EE.UU. (GS1 US)','036':'EE.UU. (GS1 US)','037':'EE.UU. (GS1 US)',
-    '038':'EE.UU. (GS1 US)','039':'EE.UU. (GS1 US)','040':'EE.UU. (GS1 US)',
-    '050':'EE.UU. (GS1 US)','060':'EE.UU. (GS1 US)','070':'EE.UU. (GS1 US)',
-    '080':'EE.UU. (GS1 US)','090':'EE.UU. (GS1 US)','100':'EE.UU. (GS1 US)',
-    '110':'EE.UU. (GS1 US)','120':'EE.UU. (GS1 US)','130':'EE.UU. (GS1 US)',
-    '200':'Distribución restringida',
-    '300':'Francia','310':'Francia','320':'Francia','330':'Francia','340':'Francia',
-    '350':'Francia','360':'Francia','370':'Francia','380':'Bulgaria',
-    '400':'Alemania','410':'Alemania','420':'Alemania','430':'Alemania','440':'Alemania',
-    '450':'Japón','460':'Rusia','470':'Kirguistán','480':'Filipinas','490':'Japón',
-    '500':'Reino Unido','509':'Reino Unido',
-    '520':'Grecia','530':'Chipre','540':'Bélgica/Luxemburgo',
-    '560':'Portugal','570':'Dinamarca','590':'Polonia',
-    '600':'Sudáfrica','610':'Mauricio','620':'Tanzania',
-    '640':'Finlandia','690':'China','693':'China','694':'China',
-    '700':'Noruega','729':'Israel','740':'Guatemala',
-    '750':'México','760':'Suiza','770':'Colombia',
-    '775':'Perú','779':'Argentina','780':'Chile',
-    '789':'Brasil','790':'Brasil',
-    '800':'Italia','810':'Italia','820':'Italia','830':'Italia',
-    '840':'España','850':'Cuba','858':'Eslovaquia',
-    '860':'Serbia','869':'Turquía','870':'Países Bajos',
-    '880':'Corea del Sur','885':'Tailandia','888':'Singapur',
-    '890':'India','893':'Vietnam','899':'Indonesia',
-    '900':'Austria','910':'Austria','920':'Austria',
-    '930':'Australia','940':'Nueva Zelanda','950':'Taiwán',
-    '955':'Malasia','958':'Macao'
-  };
-
   const DETECT_INTERVAL      = 100;
   const DEDUPE_MS            = 1500;
-  const LOG_MAX              = 5;
-  const DETECT_LOG_THROTTLE  = 500;
   const TOAST_MS             = 3000;
 
   const EXTRA_ROTATIONS = [90, 180, 270];
 
-  // ---------------------------------------------------------------- state
+  // ---------------------------------------------------------------- estado
   let running         = false;
   let rafId           = 0;
   let rvfcHandle      = 0;
@@ -469,6 +472,8 @@
   let stream          = null;
   let nativeDetector  = null;
   let zxingCore       = null;
+  let preloadedZXing  = null;
+  let systemReady     = false;
   let torchTrack      = null;
   let torchOn         = false;
   let rotCursor       = 0;
@@ -477,9 +482,12 @@
   let lastLookupCode  = '';
   let lookupId        = 0;
   let flashTimer      = 0;
-  let lastDetectLog   = 0;
   let lastProductData = null;
-  let toastTimer      = 0;
+
+  let toastProgress   = 0;
+  let toastTarget     = 0;
+  let toastAnimId     = 0;
+  let toastAutoTimer  = 0;
 
   const cropCanvas = document.createElement('canvas');
   cropCanvas.style.display = 'none';
@@ -491,81 +499,1305 @@
   document.body.appendChild(rotCanvas);
   const rotCtx = rotCanvas.getContext('2d', { willReadFrequently: true });
 
-  // ---------------------------------------------------------------- log
-  const logLines = [];
+  // ---------------------------------------------------------------- utils
+  function delay(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+  function log(msg, cls) {
+    const tag = '[Escáner]';
+    if (cls === 'err')       console.error(tag, msg);
+    else if (cls === 'warn') console.warn(tag, msg);
+    else                     console.log(tag, msg);
+  }
+
+  function setStatus(t) { statusEl.textContent = t; }
+
   function escapeHtml(s) {
     return String(s).replace(/[&<>"']/g, (c) => ({
       '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
     }[c]));
   }
-  function log(msg, cls) {
-    const t = new Date().toLocaleTimeString('es-ES', { hour12: false });
-    const line = '[' + t + '] ' + msg;
-    logLines.push(cls ? '<span class="' + cls + '">' + escapeHtml(line) + '</span>' : escapeHtml(line));
-    while (logLines.length > LOG_MAX) logLines.shift();
-    logEl.innerHTML = logLines.join('\n');
-  }
-  function logThrottled(msg, cls) {
-    const now = Date.now();
-    if (now - lastDetectLog < DETECT_LOG_THROTTLE) return;
-    lastDetectLog = now;
-    log(msg, cls);
+
+  // -------------------------------------------------- toast + progreso
+  function renderLoadProgress() {
+    const pct = Math.max(0, Math.min(100, Math.round(toastProgress)));
+    toastBarEl.style.width = pct + '%';
+    toastPctEl.textContent = pct + '%';
   }
 
-  function setStatus(t) { statusEl.textContent = t; }
+  function progressTick() {
+    const diff = toastTarget - toastProgress;
+    if (Math.abs(diff) < 0.4) {
+      toastProgress = toastTarget;
+      renderLoadProgress();
+      toastAnimId = 0;
+      return;
+    }
+    toastProgress += diff * 0.18;
+    if ((diff > 0 && toastProgress > toastTarget) ||
+        (diff < 0 && toastProgress < toastTarget)) {
+      toastProgress = toastTarget;
+    }
+    renderLoadProgress();
+    toastAnimId = requestAnimationFrame(progressTick);
+  }
+
+  function setLoadProgress(target, label) {
+    toastTarget = Math.max(0, Math.min(100, target));
+    if (label != null) toastTextEl.textContent = label;
+    if (!toastAnimId) toastAnimId = requestAnimationFrame(progressTick);
+  }
+
+  function showLoadingToast(label) {
+    clearTimeout(toastAutoTimer);
+    toastEl.classList.add('on', 'loading');
+    if (label != null) toastTextEl.textContent = label;
+  }
+
+  function hideToast() {
+    clearTimeout(toastAutoTimer);
+    toastEl.classList.remove('on');
+  }
+
+  function resetProgress() {
+    if (toastAnimId) { cancelAnimationFrame(toastAnimId); toastAnimId = 0; }
+    toastProgress = 0;
+    toastTarget = 0;
+    toastBarEl.style.width = '0%';
+    toastPctEl.textContent = '0%';
+  }
 
   function showToast(msg, ms) {
-    toastEl.textContent = msg;
+    clearTimeout(toastAutoTimer);
+    resetProgress();
+    toastEl.classList.remove('loading');
+    if (msg != null) toastTextEl.textContent = msg;
     toastEl.classList.add('on');
-    clearTimeout(toastTimer);
-    toastTimer = setTimeout(() => toastEl.classList.remove('on'), ms || TOAST_MS);
+    if (ms) {
+      toastAutoTimer = setTimeout(() => toastEl.classList.remove('on'), ms);
+    }
   }
 
-  function clearProduct() {
-    productEl.classList.remove('visible');
-    nameEl.textContent = '';
-    brandEl.textContent = '';
-    metaEl.innerHTML = '';
-    ingredientsEl.textContent = '';
-    ingredientsEl.classList.remove('visible');
-    analysisEl.innerHTML = '';
-    analysisEl.classList.remove('visible');
-    lastProductData = null;
+  // ------------------------------------------------------- carga de scripts
+  function loadScript(src) {
+    return new Promise((resolve, reject) => {
+      const s = document.createElement('script');
+      s.src = src; s.async = true;
+      s.onload = () => resolve();
+      s.onerror = () => { s.remove(); reject(new Error('No se pudo cargar ' + src)); };
+      document.head.appendChild(s);
+    });
   }
 
-  // ------------------------------------------------------------ GS1 parse
-  function parseGS1(raw) {
-    const code = String(raw).replace(/\D/g, '');
-    if (code.length !== 12 && code.length !== 13) return null;
+  async function loadZXingLibrary() {
+    if (window.ZXing) return window.ZXing;
+    let lastErr;
+    for (const url of ZXING_URLS) {
+      try {
+        log('ZXing: cargando…');
+        await loadScript(url);
+        if (window.ZXing) { log('ZXing: cargado', 'ok'); return window.ZXing; }
+      } catch (e) { lastErr = e; log('ZXing: fallo al cargar', 'warn'); }
+    }
+    throw lastErr || new Error('No se pudo cargar ZXing');
+  }
 
-    const full         = code.length === 12 ? '0' + code : code;
-    const prefix       = full.substring(0, 3);
-    const manufacturer = full.substring(3, 8);
-    const productCode  = full.substring(8, 12);
-    const checkDigit   = full.substring(12, 13);
+  async function preload() {
+    const t0 = Date.now();
+    showLoadingToast('Preparando el escáner…');
+    setLoadProgress(5, 'Preparando el escáner…');
+    await delay(120);
 
-    let sum = 0;
-    for (let i = 0; i < 12; i++) sum += Number(full[i]) * (i % 2 === 0 ? 1 : 3);
-    const calc  = (10 - (sum % 10)) % 10;
-    const valid = calc === Number(checkDigit);
+    try {
+      setLoadProgress(25, 'Cargando decodificador…');
+      const ZX = await loadZXingLibrary();
+      preloadedZXing = ZX;
 
-    let country = GS1_PREFIXES[prefix] || GS1_PREFIXES[prefix.substring(0, 2)] || null;
+      setLoadProgress(75, 'Configurando decodificador…');
+      await delay(180);
 
-    return {
-      full,
-      format: code.length === 12 ? 'UPC-A' : 'EAN-13',
-      prefix, manufacturer, productCode, checkDigit, valid,
-      country: country || 'Desconocido / ver lista de prefijos GS1'
+      if (!ZX.MultiFormatReader || !ZX.HTMLCanvasElementLuminanceSource) {
+        throw new Error('Biblioteca ZXing incompleta');
+      }
+      setLoadProgress(95, 'Verificando…');
+      await delay(120);
+    } catch (e) {
+      log('Precarga de ZXing fallida: ' + (e.message || e), 'err');
+    }
+
+    setLoadProgress(100, 'Listo');
+
+    const elapsed = Date.now() - t0;
+    if (elapsed < MIN_PRELOAD_MS) {
+      await delay(MIN_PRELOAD_MS - elapsed);
+    }
+
+    systemReady = true;
+    tapCatch.classList.remove('blocked');
+    setStatus('Toca la pantalla para escanear');
+    showToast('Toca la pantalla para escanear', TOAST_MS);
+    log('Sistema listo', 'ok');
+  }
+
+  // ============================================================
+  // ============  ANÁLISIS DE ALÉRGENOS (multi-señal)  =========
+  // ============================================================
+  //
+  // Estrategia: Open Food Facts es una base de datos colaborativa y la
+  // mayoría de productos NO declaran explícitamente "sin gluten". Por eso
+  // usamos varias señales en orden decreciente de fiabilidad:
+  //
+  //   1. `allergens_tags`  → declaración oficial del fabricante (máxima)
+  //   2. `traces_tags`     → "puede contener trazas" (alta)
+  //   3. Ingredientes      → palabras clave en `ingredients_text` (media)
+  //   4. Categoría de riesgo del producto (media-baja)
+  //   5. Categoría naturalmente libre (media-baja)
+  //
+  // NUNCA garantizamos la ausencia de un alérgeno. La app solo informa de
+  // indicios; la única fuente fiable es la etiqueta física del envase.
+  //
+  // Los niveles posibles son (SOLO estos cuatro; nunca se afirma que un
+  // producto está "libre" de un alérgeno):
+  //   - 'contains'     → contiene el alérgeno (rojo)
+  //   - 'may-contain'  → trazas declaradas (rojo)
+  //   - 'check-label'  → sin declaración pero categoría de riesgo (ámbar)
+  //   - 'unknown'      → sin datos suficientes o categoría habitualmente
+  //                      libre (gris) — esto NUNCA implica ausencia real
+  //
+  // Cada resultado también incluye `evidence`, para que la interfaz pueda
+  // distinguir el origen de la información:
+  //   - 'declared'        → allergens_tags o traces_tags del fabricante
+  //   - 'ingredient-text' → coincidencia de palabra clave en ingredientes
+  //   - 'category-risk'   → inferido por la categoría del producto
+  //   - 'none'            → sin información suficiente
+  // ============================================================
+
+  const ALLERGEN_DEFS = {
+    gluten: {
+      label: 'gluten',
+      tags: ['gluten'],
+      keywords: [
+        'gluten','trigo','wheat','cebada','barley','centeno','rye',
+        'espelta','spelt','kamut','triticale','malta','malt',
+        'sémola','semolina','cuscús','couscous','seitán','seitan',
+        'harina de trigo','wheat flour','pan rallado','breadcrumb',
+        'panko','bulgur','farro','orzo','avena','oat','cerveza','beer',
+        'pasta de trigo','wheat pasta','fideos','noodle','galleta',
+        'biscuit','bizcocho','pastel','croissant','pizza','empanada',
+        'rebozado','breaded','wheat starch','almidón de trigo','durum',
+        'escanda','candeal'
+      ],
+      highRiskCategories: [
+        'bread','pasta','noodle','cereal','breakfast-cereal','biscuit',
+        'cookie','cake','pastry','pizza','beer','flour','cracker',
+        'snack','couscous','seitan','semolina','croissant','waffle',
+        'pancake','pie','tart','donut','muffin','brownie','granola',
+        'muesli','porridge','bulgur','spelt','sandwich','burger',
+        'quiche','lasagna','ravioli','gnocchi','tempura'
+      ],
+      lowRiskCategories: [
+        'fresh-vegetable','fresh-fruit','vegetable','fruit','meat',
+        'fish','milk','dairy','egg','rice','potato','legume','pulse',
+        'water','wine','coffee','tea','honey','sugar','salt','oil',
+        'spice','herb'
+      ]
+    },
+
+    milk: {
+      label: 'lactosa',
+      tags: ['milk'],
+      keywords: [
+        'leche','milk','lactosa','lactose','suero','whey','caseína',
+        'casein','caseinato','caseinate','mantequilla','butter','nata',
+        'cream','queso','cheese','yogur','yogurt','yoghurt','ghee',
+        'requesón','ricotta','mascarpone','cuajada','lactoalbumina',
+        'lactoglobulina'
+      ],
+      highRiskCategories: [
+        'milk','dairy','cheese','yogurt','yoghurt','cream','butter',
+        'ice-cream','chocolate','cake','biscuit','pastry','margarine',
+        'dressing'
+      ],
+      lowRiskCategories: [
+        'fresh-vegetable','fresh-fruit','vegetable','fruit','meat',
+        'fish','water','wine','coffee','tea','oil','vinegar','salt',
+        'sugar','spice','herb','rice','potato','legume'
+      ]
+    },
+
+    nuts: {
+      label: 'frutos secos',
+      tags: ['nuts'],
+      keywords: [
+        'almendra','almond','avellana','hazelnut','nuez','walnut',
+        'nueces','pecana','pecan','anacardo','cashew','pistacho',
+        'pistachio','macadamia','brazil nut','castaña','chestnut',
+        'piñón','pine nut','praliné','praline','nogal','corylus',
+        'prunus dulcis'
+      ],
+      highRiskCategories: [
+        'chocolate','ice-cream','cake','biscuit','pastry','snack',
+        'cereal','granola','muesli','pesto','spread','truffle',
+        'nougat','turrón','marzipan','mazapán'
+      ],
+      lowRiskCategories: [
+        'fresh-vegetable','fresh-fruit','vegetable','fruit','meat',
+        'fish','milk','dairy','water','wine','coffee','tea','rice',
+        'potato','legume'
+      ]
+    },
+
+    egg: {
+      label: 'huevo',
+      tags: ['egg'],
+      keywords: [
+        'huevo','egg','clara de huevo','yema','yolk','albumen',
+        'ovalbúmina','ovomucoide','lisozima','lysozyme','ovoalbúmina',
+        'ovotransferrina','lecitina de huevo','egg lecithin'
+      ],
+      highRiskCategories: [
+        'egg','cake','biscuit','pastry','mayonnaise','mayonesa',
+        'pasta','noodle','ice-cream','meringue','merengue'
+      ],
+      lowRiskCategories: [
+        'fresh-vegetable','fresh-fruit','vegetable','fruit','meat',
+        'fish','milk','dairy','water','wine','coffee','tea','rice',
+        'potato','legume'
+      ]
+    },
+
+    soy: {
+      label: 'soja',
+      tags: ['soybeans','soy'],
+      keywords: [
+        'soja','soya','soy','tofu','edamame','miso','tempeh','tamari',
+        'lecitina de soja','soy lecithin','proteína de soja',
+        'soy protein','haba de soja','soybean'
+      ],
+      highRiskCategories: [
+        'soy','tofu','sauce','dressing','chocolate','snack','cereal',
+        'biscuit','cake','ice-cream','margarine','spread'
+      ],
+      lowRiskCategories: [
+        'fresh-vegetable','fresh-fruit','vegetable','fruit','meat',
+        'fish','milk','dairy','water','wine','coffee','tea','rice',
+        'potato'
+      ]
+    },
+
+    crustacean: {
+      label: 'marisco',
+      tags: ['crustacean'],
+      keywords: [
+        'gamba','gambas','shrimp','prawn','langostino','cangrejo',
+        'crab','langosta','lobster','bogavante','cigala','krill',
+        'camarón','nécora','centollo','marisco','shellfish'
+      ],
+      highRiskCategories: [
+        'seafood','fish','sauce','paella','soup','surimi'
+      ],
+      lowRiskCategories: [
+        'fresh-vegetable','fresh-fruit','vegetable','fruit','meat',
+        'milk','dairy','water','wine','coffee','tea','rice','potato',
+        'legume'
+      ]
+    },
+
+    sesame: {
+      label: 'sésamo',
+      tags: ['sesame'],
+      keywords: [
+        'sésamo','sesame','ajonjolí','tahini','tahina','benne',
+        'halva','halwa'
+      ],
+      highRiskCategories: [
+        'bread','biscuit','cracker','snack','sauce','dressing',
+        'hummus','tahini'
+      ],
+      lowRiskCategories: [
+        'fresh-vegetable','fresh-fruit','vegetable','fruit','meat',
+        'fish','milk','dairy','water','wine','coffee','tea','rice',
+        'potato','legume'
+      ]
+    },
+
+    sulphite: {
+      label: 'sulfitos',
+      tags: ['sulphur-dioxide','sulphite','sulfite'],
+      keywords: [
+        'sulfito','sulphite','sulfite','metabisulfito','metabisulphite',
+        'e220','e221','e222','e223','e224','e225','e226','e227','e228',
+        'dióxido de azufre','sulphur dioxide','sulfur dioxide'
+      ],
+      highRiskCategories: [
+        'wine','beer','dried-fruit','juice','vinegar','preserve',
+        'jam','syrup'
+      ],
+      lowRiskCategories: [
+        'fresh-vegetable','fresh-fruit','vegetable','fruit','meat',
+        'fish','milk','dairy','water','coffee','tea','rice','potato',
+        'legume','oil','salt','sugar'
+      ]
+    },
+
+    peanut: {
+      label: 'cacahuetes',
+      tags: ['peanuts', 'peanut'],
+      keywords: [
+        'cacahuete','cacahuetes','cacahuate','maní','mani','peanut',
+        'peanuts','arachis','arachide','manteca de cacahuete',
+        'peanut butter','crema de cacahuete','aceite de cacahuete',
+        'peanut oil','harina de cacahuete','peanut flour','groundnut'
+      ],
+      highRiskCategories: [
+        'peanut','snack','chocolate','biscuit','cake','pastry',
+        'sauce','satay','granola','muesli','ice-cream','spread',
+        'nougat','turrón'
+      ],
+      lowRiskCategories: [
+        'fresh-vegetable','fresh-fruit','vegetable','fruit','meat',
+        'fish','milk','dairy','egg','water','wine','coffee','tea',
+        'rice','potato'
+      ]
+    },
+
+    fish: {
+      label: 'pescado',
+      tags: ['fish'],
+      keywords: [
+        'pescado','fish','salmón','salmon','atún','atun','tuna',
+        'bacalao','cod','merluza','hake','anchoa','anchovy','sardina',
+        'sardine','trucha','trout','caballa','mackerel','lenguado',
+        'sole','gelatina de pescado','fish gelatin','surimi',
+        'gelatina de pescado','worcestershire','salsa worcester',
+        'colapez','isinglass','caviar','huevas','roe','garum'
+      ],
+      highRiskCategories: [
+        'fish','seafood','sauce','soup','paella','surimi','pate',
+        'paté','spread','dip'
+      ],
+      lowRiskCategories: [
+        'fresh-vegetable','fresh-fruit','vegetable','fruit','meat',
+        'milk','dairy','egg','water','wine','coffee','tea','rice',
+        'potato','legume'
+      ]
+    },
+
+    mollusc: {
+      label: 'moluscos',
+      tags: ['molluscs', 'mollusc'],
+      keywords: [
+        'molusco','moluscos','mollusc','molluscs','almeja','almejas',
+        'clam','mejillón','mejillones','mussel','ostra','ostras',
+        'oyster','vieira','vieiras','scallop','calamar','calamares',
+        'squid','pulpo','octopus','sepia','cuttlefish','caracol',
+        'caracoles','snail','berberecho','cockle','navaja','razor clam'
+      ],
+      highRiskCategories: [
+        'seafood','fish','sauce','paella','soup'
+      ],
+      lowRiskCategories: [
+        'fresh-vegetable','fresh-fruit','vegetable','fruit','meat',
+        'milk','dairy','egg','water','wine','coffee','tea','rice',
+        'potato','legume'
+      ]
+    },
+
+    celery: {
+      label: 'apio',
+      tags: ['celery'],
+      keywords: [
+        'apio','celery','apionabo','celeriac','celery salt',
+        'sal de apio','celery seed','semilla de apio','celery leaf',
+        'celery powder','polvo de apio','extracto de apio'
+      ],
+      highRiskCategories: [
+        'soup','sauce','stock','caldo','broth','seasoning',
+        'condiment','salad','ensalada','spice-mix'
+      ],
+      lowRiskCategories: [
+        'fresh-fruit','fruit','milk','dairy','egg','water','wine',
+        'coffee','tea','rice'
+      ]
+    },
+
+    mustard: {
+      label: 'mostaza',
+      tags: ['mustard'],
+      keywords: [
+        'mostaza','mustard','sinapis','mustard seed','semilla de mostaza',
+        'mustard flour','harina de mostaza','mustard oil','aceite de mostaza',
+        'dijon','dijón'
+      ],
+      highRiskCategories: [
+        'sauce','dressing','condiment','mayonnaise','mayonesa',
+        'ketchup','mustard','salad','ensalada','marinade'
+      ],
+      lowRiskCategories: [
+        'fresh-fruit','fruit','milk','dairy','egg','water','wine',
+        'coffee','tea','rice'
+      ]
+    },
+
+    lupin: {
+      label: 'altramuces',
+      tags: ['lupin'],
+      keywords: [
+        'altramuz','altramuces','lupino','lupin','lupine','lupinus',
+        'harina de altramuz','lupin flour','proteína de altramuz',
+        'lupin protein'
+      ],
+      highRiskCategories: [
+        'flour','bread','pastry','biscuit','cake','gluten-free',
+        'vegetarian','vegan','plant-based-food'
+      ],
+      lowRiskCategories: [
+        'fresh-vegetable','fresh-fruit','vegetable','fruit','meat',
+        'fish','milk','dairy','egg','water','wine','coffee','tea',
+        'rice','potato'
+      ]
+    }
+  };
+
+  function normalizeTag(t) {
+    return String(t || '').toLowerCase().replace(/^[a-z]{2}:/, '');
+  }
+
+  // Evalúa un alérgeno concreto contra los datos del producto y devuelve
+  // el nivel de riesgo + la razón por la que se ha llegado a él.
+  function assessAllergen(key, product) {
+    const def = ALLERGEN_DEFS[key];
+    if (!def || !product) {
+      return { level: 'unknown', evidence: 'none', reason: 'Sin datos' };
+    }
+
+    const allergens  = (product.allergens_tags || []).map(normalizeTag);
+    const traces     = (product.traces_tags    || []).map(normalizeTag);
+    const categories = (product.categories_tags|| []).map(normalizeTag);
+    const ingredients = String(product.ingredients_text || '').toLowerCase();
+
+    // 1) Declarado en allergens_tags → contiene (máxima fiabilidad)
+    const declared = def.tags.some(tag =>
+      allergens.some(a => a.indexOf(tag) !== -1));
+    if (declared) {
+      return { level: 'contains', evidence: 'declared', reason: 'Declarado por el fabricante' };
+    }
+
+    // 2) Declarado en traces_tags → puede contener trazas (declarado)
+    const inTraces = def.tags.some(tag =>
+      traces.some(a => a.indexOf(tag) !== -1));
+    if (inTraces) {
+      return { level: 'may-contain', evidence: 'declared', reason: 'Trazas declaradas por el fabricante' };
+    }
+
+    // 3) Palabras clave en la lista de ingredientes → posible presencia (inferido)
+    const hitKeyword = def.keywords.find(kw => ingredients.indexOf(kw) !== -1);
+    if (hitKeyword) {
+      return { level: 'contains', evidence: 'ingredient-text', reason: 'Ingrediente detectado: «' + hitKeyword + '»' };
+    }
+
+    // 4) Categoría de riesgo → verificar etiqueta (inferido, no declarado)
+    const hitRisk = (def.highRiskCategories || []).find(hr =>
+      categories.some(c => c.indexOf(hr) !== -1));
+    if (hitRisk) {
+      return { level: 'check-label', evidence: 'category-risk', reason: 'Categoría de riesgo: ' + hitRisk };
+    }
+
+    // 5) Categoría habitualmente libre de este alérgeno: esto NO es una
+    // garantía de ausencia, así que el nivel sigue siendo 'unknown'.
+    const hitSafeCategory = (def.lowRiskCategories || []).find(lr =>
+      categories.some(c => c.indexOf(lr) !== -1));
+    if (hitSafeCategory) {
+      return {
+        level: 'unknown', evidence: 'none',
+        reason: 'Sin indicios en los datos disponibles (categoría habitual: ' + hitSafeCategory + ')'
+      };
+    }
+
+    // 6) Sin información suficiente
+    return { level: 'unknown', evidence: 'none', reason: 'Sin declaración ni categoría concluyente' };
+  }
+
+  // ============================================================
+  // ==============  PERFIL DEL PACIENTE + PUNTUACIÓN  ==========
+  // ============================================================
+
+  const PROFILE_KEY = 'barcodeScanner.paciente.v1';
+
+  const EXCLUSIVE_GROUPS = [
+    { label: 'Diabetes', hint: 'elige una',
+      ids: ['type1diabetes', 'diabetes', 'prediabetes'] }
+  ];
+
+  const EXCLUSIVE_IDS = {};
+  for (const g of EXCLUSIVE_GROUPS) {
+    for (const id of g.ids) EXCLUSIVE_IDS[id] = true;
+  }
+
+  const CONDITIONS = [
+    { id: 'type1diabetes', label: 'Diabetes tipo 1',            icon: '💉', group: 'diabetes' },
+    { id: 'diabetes',      label: 'Diabetes tipo 2',            icon: '🩸', group: 'diabetes' },
+    { id: 'prediabetes',   label: 'Prediabetes',                icon: '🩺', group: 'diabetes' },
+
+    { id: 'hbp',           label: 'Hipertensión',               icon: '❤️' },
+    { id: 'heartfailure',  label: 'Insuficiencia cardíaca',     icon: '💔' },
+    { id: 'cholesterol',   label: 'Colesterol alto',            icon: '🫀' },
+    { id: 'ckd',           label: 'Enfermedad renal',           icon: '🫘' },
+    { id: 'liver',         label: 'Enfermedad hepática',        icon: '🫁' },
+    { id: 'obesity',       label: 'Control de peso',            icon: '⚖️' },
+    { id: 'gout',          label: 'Gota',                       icon: '🦴' },
+    { id: 'ibs',           label: 'SII / Intestino irritable',  icon: '🌀' },
+    { id: 'gerd',          label: 'Reflujo (ERGE)',             icon: '🔥' },
+    { id: 'pcos',          label: 'SOP / PCOS',                 icon: '🌸' },
+    { id: 'anemia',        label: 'Anemia ferropénica',         icon: '🩹' },
+    { id: 'osteoporosis',  label: 'Osteoporosis',               icon: '🦴' },
+    { id: 'pregnancy',     label: 'Embarazo',                   icon: '🤰' },
+
+    { id: 'celiac',        label: 'Celiaquía (gluten)',         icon: '🌾' },
+    { id: 'lactose',       label: 'Intolerancia a la lactosa',  icon: '🥛' },
+    { id: 'nutallergy',    label: 'Alergia a frutos secos',     icon: '🥜' },
+    { id: 'eggallergy',    label: 'Alergia al huevo',           icon: '🥚' },
+    { id: 'soyallergy',    label: 'Alergia a la soja',          icon: '🫛' },
+    { id: 'shellfish',     label: 'Alergia al marisco',         icon: '🦐' },
+    { id: 'sesame',        label: 'Alergia al sésamo',          icon: '🫘' },
+    { id: 'sulphites',     label: 'Sensibilidad a sulfitos',    icon: '🍷' },
+
+    { id: 'peanutallergy', label: 'Alergia a los cacahuetes',   icon: '🥜' },
+    { id: 'fishallergy',   label: 'Alergia al pescado',         icon: '🐟' },
+    { id: 'molluscallergy',label: 'Alergia a los moluscos',     icon: '🐚' },
+    { id: 'celeryallergy', label: 'Alergia al apio',            icon: '🥬' },
+    { id: 'mustardallergy',label: 'Alergia a la mostaza',       icon: '🌭' },
+    { id: 'lupinallergy',  label: 'Alergia a los altramuces',   icon: '🌱' }
+  ];
+
+  const NUTRIENT_LABELS = {
+    energy: 'Calorías', fat: 'Grasas', saturated: 'Grasas saturadas',
+    sugars: 'Azúcares', salt: 'Sal', carbohydrates: 'Carbohidratos',
+    fiber: 'Fibra', proteins: 'Proteínas',
+    iron: 'Hierro', calcium: 'Calcio'
+  };
+
+  const TL = {
+    fat:       { green: 3.0, red: 17.5, label: 'Grasas' },
+    saturated: { green: 1.5, red: 5.0,  label: 'Grasas saturadas' },
+    sugars:    { green: 5.0, red: 22.5, label: 'Azúcares' },
+    salt:      { green: 0.3, red: 1.5,  label: 'Sal' }
+  };
+
+  const CONDITION_RULES = {
+    type1diabetes: { nutrients: { sugars: 3, carbohydrates: 2, fiber: 2 } },
+    diabetes:      { nutrients: { sugars: 3, carbohydrates: 1.5, fiber: 2, energy: 1 } },
+    prediabetes:   { nutrients: { sugars: 3, carbohydrates: 2, fiber: 2, energy: 1 } },
+
+    hbp:           { nutrients: { salt: 4, saturated: 1.5 } },
+    heartfailure:  { nutrients: { salt: 4.5, energy: 1, saturated: 1 } },
+    cholesterol:   { nutrients: { saturated: 3.5, fat: 1, fiber: 2 } },
+    ckd:           { nutrients: { salt: 4, proteins: 2, saturated: 1 } },
+    liver:         { nutrients: { salt: 3, sugars: 2, saturated: 2 } },
+    obesity:       { nutrients: { energy: 3, sugars: 2, saturated: 1.5, fiber: 2 } },
+    gout:          { nutrients: { sugars: 2.5, proteins: 1.5, energy: 1 } },
+    ibs:           { nutrients: { fat: 2, sugars: 1.5 } },
+    gerd:          { nutrients: { fat: 2, saturated: 1.5, sugars: 1 } },
+    pcos:          { nutrients: { sugars: 3, carbohydrates: 2, fiber: 2 } },
+    anemia:        { nutrients: { iron: 4 } },
+    osteoporosis:  { nutrients: { calcium: 4 } },
+    pregnancy:     { nutrients: { sugars: 2, saturated: 1.5, proteins: 1.5 } },
+
+    // Alérgenos — se evalúan con assessAllergen()
+    celiac:        { allergen: 'gluten' },
+    lactose:       { allergen: 'milk' },
+    nutallergy:    { allergen: 'nuts' },
+    eggallergy:    { allergen: 'egg' },
+    soyallergy:    { allergen: 'soy' },
+    shellfish:     { allergen: 'crustacean' },
+    sesame:        { allergen: 'sesame' },
+    sulphites:     { allergen: 'sulphite' },
+    peanutallergy: { allergen: 'peanut' },
+    fishallergy:   { allergen: 'fish' },
+    molluscallergy:{ allergen: 'mollusc' },
+    celeryallergy: { allergen: 'celery' },
+    mustardallergy:{ allergen: 'mustard' },
+    lupinallergy:  { allergen: 'lupin' }
+  };
+
+  const DEFAULT_PROFILE = { conditions: {} };
+
+  function sanitizeProfileConditions(conds) {
+    for (const g of EXCLUSIVE_GROUPS) {
+      const active = g.ids.filter(id => conds[id]);
+      if (active.length > 1) {
+        for (let i = 1; i < active.length; i++) conds[active[i]] = false;
+      }
+    }
+  }
+
+  function loadProfile() {
+    try {
+      const raw = localStorage.getItem(PROFILE_KEY);
+      if (!raw) return JSON.parse(JSON.stringify(DEFAULT_PROFILE));
+      const p = JSON.parse(raw);
+      const prof = {
+        conditions: (p && p.conditions && typeof p.conditions === 'object') ? p.conditions : {}
+      };
+      sanitizeProfileConditions(prof.conditions);
+      return prof;
+    } catch (_) {
+      return JSON.parse(JSON.stringify(DEFAULT_PROFILE));
+    }
+  }
+
+  function saveProfile() {
+    try { localStorage.setItem(PROFILE_KEY, JSON.stringify(profile)); }
+    catch (e) { log('No se pudo guardar el perfil: ' + (e.message || e), 'warn'); }
+  }
+
+  let profile = loadProfile();
+
+  const profileCard    = document.getElementById('profileCard');
+  const profileToggle  = document.getElementById('profileToggle');
+  const profileSummary = document.getElementById('profileSummary');
+  const condGridDiab   = document.getElementById('condGridDiabetes');
+  const condGridOther  = document.getElementById('condGridOther');
+
+  function openProfile()  { profileCard.classList.add('open'); }
+  function closeProfile() { profileCard.classList.remove('open'); }
+  function isProfileOpen(){ return profileCard.classList.contains('open'); }
+
+  function hasAnyCondition() {
+    return Object.keys(profile.conditions).some(k => profile.conditions[k]);
+  }
+
+  function updateProfileSummary() {
+    const ids = Object.keys(profile.conditions).filter(k => profile.conditions[k]);
+    if (!ids.length) { profileSummary.textContent = 'no configurado'; return; }
+    profileSummary.textContent = ids.map(id => {
+      const c = CONDITIONS.find(x => x.id === id);
+      return c ? c.icon : '';
+    }).join(' ') + ' · ' + ids.length + ' activas';
+  }
+
+  function findCondLabel(id) {
+    return condGridDiab.querySelector('.cond[data-id="' + id + '"]') ||
+           condGridOther.querySelector('.cond[data-id="' + id + '"]');
+  }
+
+  function buildConditionGrids() {
+    condGridDiab.innerHTML  = '';
+    condGridOther.innerHTML = '';
+
+    for (const c of CONDITIONS) {
+      const checked   = !!profile.conditions[c.id];
+      const exclusive = !!EXCLUSIVE_IDS[c.id];
+
+      const lab = document.createElement('label');
+      lab.className = 'cond'
+                    + (checked ? ' on' : '')
+                    + (exclusive ? ' exclusive' : '');
+      lab.dataset.id = c.id;
+      lab.innerHTML =
+        '<input type="checkbox"' + (checked ? ' checked' : '') + '>' +
+        '<span class="tick">✓</span>' +
+        '<span class="ico">' + c.icon + '</span>' +
+        '<span class="lbl">' + c.label + '</span>';
+
+      const cb = lab.querySelector('input');
+      cb.addEventListener('change', () => {
+        if (cb.checked) {
+          for (const g of EXCLUSIVE_GROUPS) {
+            if (g.ids.indexOf(c.id) === -1) continue;
+            for (const sid of g.ids) {
+              if (sid === c.id) continue;
+              if (!profile.conditions[sid]) continue;
+              profile.conditions[sid] = false;
+              const sibLab = findCondLabel(sid);
+              if (sibLab) {
+                sibLab.classList.remove('on');
+                const sibCb = sibLab.querySelector('input');
+                if (sibCb) sibCb.checked = false;
+              }
+            }
+          }
+        }
+
+        profile.conditions[c.id] = cb.checked;
+        lab.classList.toggle('on', cb.checked);
+        saveProfile();
+        updateProfileSummary();
+        renderAnalysis();
+      });
+
+      if (c.group === 'diabetes') condGridDiab.appendChild(lab);
+      else                        condGridOther.appendChild(lab);
+    }
+  }
+
+  profileToggle.addEventListener('click', (e) => {
+    e.stopPropagation();
+    if (isProfileOpen()) closeProfile();
+    else openProfile();
+  });
+
+  buildConditionGrids();
+  updateProfileSummary();
+
+  // Si no hay ninguna condición configurada, abrimos el perfil al cargar
+  // para invitar al usuario a configurarlo.
+  if (!hasAnyCondition()) openProfile();
+
+  // ------------------------- extracción de nutrientes -------------------------
+
+  function numOr(v) {
+    if (v === '' || v == null) return null;
+    const n = Number(v);
+    return isFinite(n) ? n : null;
+  }
+
+  // Límites de plausibilidad para detectar posibles errores de la base de
+  // datos colaborativa (p. ej. valores introducidos en la unidad incorrecta).
+  const MAX_PLAUSIBLE_MACRO_G   = 100;   // g por 100 g/100 ml
+  const MAX_PLAUSIBLE_ENERGY_KCAL = 4000; // kcal por 100 g/100 ml
+  // Un producto cuya energía en kcal y en kJ discrepen más de esto se marca
+  // como inconsistente (no se afirma cuál de los dos valores es correcto).
+  const ENERGY_INCONSISTENCY_PCT = 0.2;
+
+  function extractNutrients(p) {
+    const nu = (p && p.nutriments) || {};
+
+    // --- Sal: distinguimos declarada vs. estimada a partir del sodio ---
+    const sodium = numOr(nu.sodium_100g);
+    const saltDeclared = numOr(nu.salt_100g);
+    let salt, saltSource;
+    if (saltDeclared != null) {
+      salt = saltDeclared; saltSource = 'declared';
+    } else if (sodium != null) {
+      salt = sodium * 2.5; saltSource = 'estimated';
+    } else {
+      salt = null; saltSource = 'unavailable';
+    }
+
+    // --- Energía: comprobamos consistencia entre kcal y kJ declarados ---
+    const kcal = numOr(nu['energy-kcal_100g']);
+    const kj   = numOr(nu.energy_100g);
+    let energy = null, energySource = 'unavailable', energyInconsistent = false;
+    if (kcal != null && kj != null) {
+      const kcalFromKj = kj / 4.184;
+      const diff = Math.abs(kcalFromKj - kcal);
+      if (diff > Math.max(20, kcal * ENERGY_INCONSISTENCY_PCT)) {
+        energyInconsistent = true;
+      }
+      energy = kcal; energySource = 'kcal';
+    } else if (kcal != null) {
+      energy = kcal; energySource = 'kcal';
+    } else if (kj != null) {
+      energy = kj / 4.184; energySource = 'kj';
+    }
+
+    const ironG    = numOr(nu.iron_100g);
+    const calciumG = numOr(nu.calcium_100g);
+
+    const result = {
+      energy: energy, energySource: energySource, energyInconsistent: energyInconsistent,
+      fat:           numOr(nu.fat_100g),
+      saturated:     numOr(nu['saturated-fat_100g']),
+      carbohydrates: numOr(nu.carbohydrates_100g),
+      sugars:        numOr(nu.sugars_100g),
+      fiber:         numOr(nu.fiber_100g),
+      proteins:      numOr(nu.proteins_100g),
+      salt:          salt,
+      saltSource:    saltSource,
+      iron:          ironG    != null ? ironG    * 1000 : null,
+      calcium:       calciumG != null ? calciumG * 1000 : null
     };
+
+    // --- Sanity check: valores por 100 g/ml que exceden lo plausible ---
+    const macroKeys = ['fat', 'saturated', 'carbohydrates', 'sugars', 'fiber', 'proteins', 'salt'];
+    let suspicious = false;
+    for (const k of macroKeys) {
+      if (result[k] != null && result[k] > MAX_PLAUSIBLE_MACRO_G) suspicious = true;
+    }
+    if (result.energy != null && result.energy > MAX_PLAUSIBLE_ENERGY_KCAL) suspicious = true;
+    result.suspicious = suspicious;
+
+    return result;
   }
 
-  function showGS1(parsed) {
-    if (!parsed) { gs1El.textContent = ''; return; }
-    gs1El.innerHTML =
-      parsed.format + ' · ' + (parsed.valid ? 'dígito de control OK' : 'dígito de control FALLIDO') + '<br>' +
-      'Región: ' + parsed.country +
-      ' · Fabricante: ' + parsed.manufacturer +
-      ' · Producto: ' + parsed.productCode;
+  // ------------------------- primitivas de puntuación -------------------------
+
+  function bandScore(value, green, red) {
+    if (value == null) return null;
+    if (value <= 0) return 10;
+    if (value <= green) return 10 - 2 * (value / green);
+    if (value <= red)   return 8 - 4 * ((value - green) / (red - green));
+    const over = Math.min(1, (value - red) / Math.max(red, 0.0001));
+    return Math.max(1, 4 - 3 * over);
+  }
+
+  function positiveScore(value, mid, high) {
+    if (value == null) return null;
+    if (value >= high) return 10;
+    if (value >= mid)  return 7 + 3 * ((value - mid) / (high - mid));
+    return 1 + 6 * (value / mid);
+  }
+
+  function scoreNutrient(key, n, condId) {
+    const v = n[key];
+    if (v == null) return null;
+    switch (key) {
+      case 'fat':           return bandScore(v, 3.0, 17.5);
+      case 'saturated':     return bandScore(v, 1.5, 5.0);
+      case 'sugars':        return bandScore(v, 5.0, 22.5);
+      case 'salt':          return bandScore(v, 0.3, 1.5);
+      case 'carbohydrates': return bandScore(v, 15, 60);
+      case 'energy':        return bandScore(v, 150, 400);
+      case 'fiber':         return positiveScore(v, 3, 6);
+      case 'iron':          return positiveScore(v, 1.5, 4);
+      case 'calcium':       return positiveScore(v, 120, 300);
+      case 'proteins':
+        if (condId === 'ckd') return bandScore(v, 6, 15);
+        return positiveScore(v, 8, 20);
+    }
+    return null;
+  }
+
+  function tlLevel(key, value) {
+    if (value == null) return null;
+    const t = TL[key];
+    if (value <= t.green) return 'green';
+    if (value <= t.red)   return 'amber';
+    return 'red';
+  }
+
+  function fmtNutrient(key, val) {
+    if (val == null) return '—';
+    if (key === 'energy') return Math.round(val) + ' kcal';
+    if (key === 'iron' || key === 'calcium') return Math.round(val) + ' mg';
+    const dec = (key === 'salt' || key === 'saturated') ? 2 : 1;
+    return val.toFixed(dec) + ' g';
+  }
+
+  function scoreColor(score) {
+    if (score == null) return '#6b6b70';
+    if (score >= 7.5) return '#22c55e';
+    if (score >= 5)   return '#fbbf24';
+    if (score >= 3)   return '#fb923c';
+    return '#ef4444';
+  }
+
+  // Frases neutras, no evaluativas ni clínicas: describen el contenido
+  // por 100 g, no si el producto es "bueno" o "malo" ni si debe evitarse.
+  function scoreWord(score) {
+    if (score == null) return 'Datos insuficientes';
+    if (score >= 7)   return 'Contenido bajo por 100 g';
+    if (score >= 4)   return 'Contenido moderado por 100 g';
+    return 'Contenido alto por 100 g; valore la porción';
+  }
+
+  function generalScore(n) {
+    const parts = [
+      ['fat', 1], ['saturated', 2], ['sugars', 2], ['salt', 2],
+      ['fiber', 1.5], ['proteins', 1]
+    ];
+    let sum = 0, wsum = 0;
+    for (const [k, w] of parts) {
+      const s = scoreNutrient(k, n);
+      if (s == null) continue;
+      sum += s * w; wsum += w;
+    }
+    return wsum ? sum / wsum : null;
+  }
+
+  function scoreCondition(condId, n) {
+    const rule = CONDITION_RULES[condId];
+    if (!rule || !rule.nutrients) return { score: null, alerts: [], good: [] };
+
+    let sum = 0, wsum = 0;
+    const alerts = [], good = [];
+    for (const key in rule.nutrients) {
+      if (!Object.prototype.hasOwnProperty.call(rule.nutrients, key)) continue;
+      const w = rule.nutrients[key];
+      const val = n[key];
+      const s = scoreNutrient(key, n, condId);
+      if (s == null || val == null) continue;
+      sum += s * w; wsum += w;
+      if (s <= 4) {
+        alerts.push(NUTRIENT_LABELS[key] + ' ' + fmtNutrient(key, val) +
+                    ' · ' + (s <= 2 ? 'muy alto' : 'alto'));
+      } else if (s >= 8.5 && (key === 'fiber' || key === 'proteins' ||
+                              key === 'iron'  || key === 'calcium')) {
+        good.push('Buena cantidad de ' + NUTRIENT_LABELS[key].toLowerCase());
+      }
+    }
+    return { score: wsum ? sum / wsum : null, alerts, good };
+  }
+
+  // --------------------------- render del análisis ---------------------------
+
+  function renderAnalysis() {
+    if (!lastProductData) {
+      analysisEl.innerHTML = '';
+      analysisEl.classList.remove('visible');
+      return;
+    }
+
+    const n = extractNutrients(lastProductData);
+    const activeConds = CONDITIONS.map(c => c.id).filter(id => !!profile.conditions[id]);
+
+    // Resultados por condición
+    const condResults = activeConds.map(id => {
+      const rule = CONDITION_RULES[id];
+      if (rule && rule.allergen) {
+        const a = assessAllergen(rule.allergen, lastProductData);
+        return {
+          id: id,
+          isAllergen: true,
+          allergenKey: rule.allergen,
+          allergenLabel: ALLERGEN_DEFS[rule.allergen].label,
+          allergenLevel: a.level,
+          allergenEvidence: a.evidence,
+          allergenReason: a.reason,
+          score: null
+        };
+      }
+      const r = scoreCondition(id, n) || { score: null, alerts: [], good: [] };
+      return { id, isAllergen: false, score: r.score, alerts: r.alerts, good: r.good };
+    });
+
+    const parts = [];
+
+    // ---------- MENSAJE GENERAL SOBRE EL ORIGEN Y LOS LÍMITES DE LOS DATOS ----------
+    // Se muestra siempre que hay un producto cargado, con independencia del
+    // perfil o de si se detecta algún alérgeno.
+    parts.push(
+      '<div class="profile-note" style="margin-top:0;text-align:left">' +
+        'Los datos proceden de Open Food Facts, una base de datos colaborativa. ' +
+        'La información puede estar incompleta, desactualizada o ser incorrecta. ' +
+        'No use esta aplicación como única fuente para decidir si un producto es ' +
+        'seguro para alergias, celiaquía o condiciones médicas.' +
+      '</div>'
+    );
+
+    // ---------- BANNER DE ALÉRGENOS ----------
+    const allergenFindings = condResults.filter(r => r.isAllergen);
+    const dangerFindings = allergenFindings.filter(r =>
+      r.allergenLevel === 'contains' || r.allergenLevel === 'may-contain');
+    const cautionFindings = allergenFindings.filter(r => r.allergenLevel === 'check-label');
+
+    // Texto del hallazgo, evitando afirmar "contiene" cuando el origen no es
+    // una declaración del fabricante.
+    function allergenFindingText(r) {
+      if (r.allergenLevel === 'may-contain') return 'puede contener trazas de ' + r.allergenLabel;
+      if (r.allergenLevel === 'contains' && r.allergenEvidence === 'declared') return 'contiene ' + r.allergenLabel;
+      if (r.allergenLevel === 'contains') return 'posible presencia (texto de ingredientes) de ' + r.allergenLabel;
+      return 'riesgo por categoría de producto — verificar etiqueta de ' + r.allergenLabel;
+    }
+    function allergenEvidenceLabel(evidence) {
+      switch (evidence) {
+        case 'declared':        return 'Declarado por el fabricante';
+        case 'ingredient-text': return 'Detectado en el texto de ingredientes';
+        case 'category-risk':   return 'Inferido por categoría de producto';
+        default:                return 'Sin información suficiente';
+      }
+    }
+
+    if (dangerFindings.length || cautionFindings.length) {
+      const isDanger = dangerFindings.length > 0;
+      const items = [];
+
+      for (const r of dangerFindings.concat(cautionFindings)) {
+        const cdef = CONDITIONS.find(x => x.id === r.id) || { label: r.id, icon: '' };
+        items.push(
+          '<div class="aw-item"><span class="ico">' + cdef.icon + '</span>' +
+            cdef.label + ' — ' + allergenFindingText(r) +
+            ' <span style="opacity:.7;font-weight:400">(' +
+              escapeHtml(allergenEvidenceLabel(r.allergenEvidence)) + ')</span>' +
+          '</div>'
+        );
+      }
+
+      const title = isDanger ? 'Posible presencia de alérgeno' : 'Verificar etiqueta';
+
+      parts.push(
+        '<div class="allergen-banner ' + (isDanger ? 'danger' : 'caution') + '">' +
+          '<div class="aw-icon">' + (isDanger ? '⚠️' : '🔎') + '</div>' +
+          '<div class="aw-body">' +
+            '<div class="aw-title">' + title + '</div>' +
+            items.join('') +
+            '<div class="aw-sub">' +
+              (isDanger
+                ? 'Esta información proviene de una base de datos colaborativa y puede estar incompleta.'
+                : 'Verificar etiqueta: la categoría del producto requiere comprobación.') +
+            '</div>' +
+          '</div>' +
+        '</div>'
+      );
+    }
+
+    // Advertencia persistente sobre alérgenos: se muestra siempre que haya
+    // al menos una condición de alergia activa en el perfil, incluso si no
+    // se ha detectado ningún alérgeno en este producto.
+    if (allergenFindings.length) {
+      parts.push(
+        '<div class="profile-note warn" style="text-align:left">' +
+          'Esta aplicación no garantiza la ausencia de alérgenos. Para personas con ' +
+          'alergia grave o celiaquía, la única forma segura de decidir si consumir un ' +
+          'producto es leer la etiqueta física del envase y, si es necesario, contactar ' +
+          'con el fabricante.' +
+        '</div>'
+      );
+    }
+
+    // ---------- PUNTUACIÓN GLOBAL ----------
+    let overall = null;
+    let overallLabel = '';
+    const nutritionalResults = condResults.filter(r => !r.isAllergen);
+    if (activeConds.length && nutritionalResults.length) {
+      const valid = nutritionalResults.filter(r => r.score != null);
+      if (valid.length) {
+        overall = valid.reduce((s, r) => s + r.score, 0) / valid.length;
+        overallLabel = 'Perfil nutricional orientativo';
+      }
+    } else if (!activeConds.length) {
+      overall = generalScore(n);
+      overallLabel = 'Perfil nutricional orientativo';
+    }
+
+    if (overall != null) {
+      const col = scoreColor(overall);
+      parts.push(
+        '<div class="score-wrap">' +
+          '<div class="score-circle" style="--c:' + col + '">' + overall.toFixed(1) + '</div>' +
+          '<div class="score-meta">' +
+            '<div class="score-title" style="color:' + col + '">' + scoreWord(overall) + '</div>' +
+            '<div class="score-sub">' + overallLabel + ' · valores por 100 g</div>' +
+          '</div>' +
+        '</div>'
+      );
+    }
+
+    // ---------- BASE Y CALIDAD DE LOS DATOS NUTRICIONALES ----------
+    parts.push(
+      '<div class="profile-note" style="text-align:left">' +
+        'Valores mostrados por 100 g o por 100 ml, según el registro de la base de datos.' +
+      '</div>'
+    );
+    if (n.suspicious) {
+      parts.push(
+        '<div class="profile-note warn" style="text-align:left">' +
+          '⚠ Datos nutricionales posiblemente incorrectos: algún valor por 100 g/100 ml ' +
+          'supera lo fisiológicamente plausible. Los valores siguientes deben tomarse con reserva.' +
+        '</div>'
+      );
+    }
+    if (n.energySource === 'unavailable' || n.energyInconsistent) {
+      parts.push(
+        '<div class="profile-note warn" style="text-align:left">' +
+          'Energía: dato no disponible o inconsistente en la base de datos.' +
+        '</div>'
+      );
+    }
+
+    // ---------- SEMÁFORO ----------
+    const tlRows = [];
+    for (const k of ['sugars', 'saturated', 'fat']) {
+      if (n[k] == null) continue;
+      const lvl = tlLevel(k, n[k]);
+      const c = lvl === 'green' ? '#22c55e'
+              : lvl === 'amber' ? '#fbbf24'
+              : lvl === 'red'   ? '#ef4444'
+              : '#3a3a40';
+      const pct = Math.min(100, (n[k] / (TL[k].red * 1.6)) * 100);
+      tlRows.push(
+        '<div class="tl-row">' +
+          '<span class="tl-dot" style="background:' + c + '"></span>' +
+          '<span class="tl-name">' + TL[k].label + '</span>' +
+          '<span class="tl-bar"><span class="tl-fill" style="width:' + pct + '%;background:' + c + '"></span></span>' +
+          '<span class="tl-val">' + fmtNutrient(k, n[k]) + '</span>' +
+        '</div>'
+      );
+    }
+    // Sal: fila propia para poder indicar si es declarada, estimada o
+    // directamente no disponible en la base de datos.
+    if (n.salt != null) {
+      const lvl = tlLevel('salt', n.salt);
+      const c = lvl === 'green' ? '#22c55e'
+              : lvl === 'amber' ? '#fbbf24'
+              : lvl === 'red'   ? '#ef4444'
+              : '#3a3a40';
+      const pct = Math.min(100, (n.salt / (TL.salt.red * 1.6)) * 100);
+      const srcTxt = n.saltSource === 'declared' ? ' · declarada'
+                   : n.saltSource === 'estimated' ? ' · estimada a partir de sodio' : '';
+      tlRows.push(
+        '<div class="tl-row">' +
+          '<span class="tl-dot" style="background:' + c + '"></span>' +
+          '<span class="tl-name">' + TL.salt.label + '</span>' +
+          '<span class="tl-bar"><span class="tl-fill" style="width:' + pct + '%;background:' + c + '"></span></span>' +
+          '<span class="tl-val">' + fmtNutrient('salt', n.salt) + srcTxt + '</span>' +
+        '</div>'
+      );
+    } else {
+      tlRows.push(
+        '<div class="tl-row">' +
+          '<span class="tl-dot" style="background:#3a3a40"></span>' +
+          '<span class="tl-name">' + TL.salt.label + '</span>' +
+          '<span class="tl-bar"></span>' +
+          '<span class="tl-val">dato no disponible</span>' +
+        '</div>'
+      );
+    }
+    if (tlRows.length) {
+      parts.push('<div class="tl-title">Semáforo nutricional</div>' + tlRows.join(''));
+    }
+
+    // ---------- BENEFICIOSOS ----------
+    const posRows = [];
+    const posKeys = [
+      ['fiber',    8],
+      ['proteins', 25],
+      ['iron',     6],
+      ['calcium',  400]
+    ];
+    for (const [k, maxVal] of posKeys) {
+      if (n[k] == null) continue;
+      const s = scoreNutrient(k, n);
+      const c = scoreColor(s);
+      const pct = Math.min(100, (n[k] / maxVal) * 100);
+      posRows.push(
+        '<div class="tl-row">' +
+          '<span class="tl-dot" style="background:' + c + '"></span>' +
+          '<span class="tl-name">' + NUTRIENT_LABELS[k] + '</span>' +
+          '<span class="tl-bar"><span class="tl-fill" style="width:' + pct + '%;background:' + c + '"></span></span>' +
+          '<span class="tl-val">' + fmtNutrient(k, n[k]) + '</span>' +
+        '</div>'
+      );
+    }
+    if (posRows.length) {
+      parts.push('<div class="tl-title">Beneficiosos</div>' + posRows.join(''));
+    }
+
+    // ---------- TARJETAS POR CONDICIÓN ----------
+    if (activeConds.length) {
+      const cards = [];
+
+      for (const r of condResults) {
+        const cdef = CONDITIONS.find(x => x.id === r.id) || { label: r.id, icon: '' };
+
+        if (r.isAllergen) {
+          // No repetimos en tarjeta lo que ya está en el banner de arriba.
+          if (r.allergenLevel === 'contains' || r.allergenLevel === 'may-contain') continue;
+
+          let cls, right, notes;
+          if (r.allergenLevel === 'check-label') {
+            cls = 'warn';
+            right = '<span class="cond-score txt" style="color:#fbbf24">Verificar etiqueta</span>';
+            notes = [
+              '🔎 Verificar etiqueta: la categoría del producto requiere comprobación (' +
+                escapeHtml(r.allergenReason) + ').',
+              'La base de datos no declara ' + r.allergenLabel +
+                ', pero la categoría del producto no garantiza su ausencia.'
+            ];
+          } else {
+            // 'unknown': ni se declara ni se descarta el alérgeno.
+            cls = 'neutral';
+            right = '<span class="cond-score txt" style="color:#9aa0a6">Sin información</span>';
+            notes = [
+              'ℹ Sin información suficiente sobre este alérgeno (' + escapeHtml(r.allergenReason) + ').',
+              'No se puede confirmar ni descartar la presencia de ' + r.allergenLabel +
+                ' con los datos disponibles. Lee siempre la etiqueta.'
+            ];
+          }
+
+          if (r.allergenKey === 'sulphite') {
+            notes.push(
+              'Los sulfitos están sujetos a un umbral de etiquetado regulado en la UE ' +
+              '(expresado como SO₂). La presencia de códigos E220–E228 indica sulfitos, ' +
+              'pero no informa de la concentración exacta.'
+            );
+          }
+
+          cards.push(
+            '<div class="cond-card ' + cls + '">' +
+              '<div class="cond-head">' +
+                '<span class="ico">' + cdef.icon + '</span>' +
+                '<span>' + cdef.label + '</span>' +
+                right +
+              '</div>' +
+              '<div class="cond-note">' + notes.join('<br>') + '</div>' +
+            '</div>'
+          );
+          continue;
+        }
+
+        // Condición nutricional normal
+        const s = r.score;
+        const hasAlerts = r.alerts && r.alerts.length > 0;
+        const hasGood   = r.good   && r.good.length   > 0;
+        if (s == null && !hasAlerts && !hasGood) continue;
+
+        const cls = s == null ? 'neutral' : s >= 7.5 ? 'good' : s >= 5 ? 'warn' : 'bad';
+        const notes = [];
+        if (hasAlerts) notes.push('⚠ ' + r.alerts.join(' · '));
+        else if (s != null && s >= 7.5) notes.push('✓ Sin nutrientes destacados por encima del umbral orientativo');
+        if (hasGood) notes.push('✓ ' + r.good.join(' · '));
+
+        // Disclaimers específicos por condición (orientativos, no clínicos).
+        if (r.id === 'type1diabetes' || r.id === 'diabetes' || r.id === 'prediabetes') {
+          notes.push(
+            'Para la diabetes, el efecto sobre la glucemia depende de la porción, el total ' +
+            'de hidratos de carbono, la fibra, la composición de la comida y el tratamiento ' +
+            'individual. Esta valoración es orientativa y no sustituye el consejo de un profesional.'
+          );
+        } else if (r.id === 'pregnancy') {
+          notes.push(
+            'Esta aplicación no evalúa riesgos específicos del embarazo (por ejemplo, alcohol, ' +
+            'mercurio en pescado, cafeína o seguridad microbiológica). Siga las recomendaciones ' +
+            'de su profesional sanitario y las etiquetas de los productos.'
+          );
+        } else {
+          notes.push(
+            'Esta valoración se basa únicamente en algunos nutrientes disponibles en la base ' +
+            'de datos y no tiene en cuenta su diagnóstico, medicación ni plan dietético individual. ' +
+            'No use esta información como único criterio para decidir si consumir un producto.'
+          );
+        }
+
+        cards.push(
+          '<div class="cond-card ' + cls + '">' +
+            '<div class="cond-head">' +
+              '<span class="ico">' + cdef.icon + '</span>' +
+              '<span>' + cdef.label + '</span>' +
+              '<span class="cond-score" style="color:' + scoreColor(s) + '">' +
+                (s == null ? '—' : s.toFixed(1) + '/10') +
+              '</span>' +
+            '</div>' +
+            '<div class="cond-note">' + notes.join('<br>') + '</div>' +
+          '</div>'
+        );
+      }
+
+      if (cards.length) {
+        parts.push(
+          '<div class="tl-title">Para tus condiciones</div>' +
+          '<div class="cond-list">' + cards.join('') + '</div>'
+        );
+      }
+    } else if (overall != null) {
+      parts.push(
+        '<div class="profile-note" style="margin-top:14px">' +
+        'Añade condiciones de salud en tu perfil para una puntuación personalizada.' +
+        '</div>'
+      );
+    }
+
+    if (parts.length) {
+      parts.push(
+        '<div class="profile-note">Solo orientativo — no es consejo médico. Las puntuaciones y ' +
+        'alertas son orientativas y no sustituyen el consejo de un profesional sanitario.</div>'
+      );
+      analysisEl.innerHTML = parts.join('');
+      analysisEl.classList.add('visible');
+    } else {
+      analysisEl.innerHTML = '';
+      analysisEl.classList.remove('visible');
+    }
   }
 
   // ------------------------------------------------------ Open Food Facts
@@ -599,6 +1831,18 @@
     return 'abcde'.indexOf(g) !== -1 ? 'grade-' + g : '';
   }
 
+  function clearProduct() {
+    productEl.classList.remove('visible');
+    nameEl.textContent = '';
+    brandEl.textContent = '';
+    metaEl.innerHTML = '';
+    ingredientsEl.textContent = '';
+    ingredientsEl.classList.remove('visible');
+    analysisEl.innerHTML = '';
+    analysisEl.classList.remove('visible');
+    lastProductData = null;
+  }
+
   function renderProduct(p) {
     if (!p) { clearProduct(); return; }
     lastProductData = p;
@@ -629,6 +1873,9 @@
 
     productEl.classList.add('visible');
     renderAnalysis();
+
+    // Desplazar el panel al principio para mostrar el análisis desde arriba.
+    panelEl.scrollTop = 0;
   }
 
   async function lookupOFF(barcode) {
@@ -645,7 +1892,7 @@
     try {
       const url = OFF_BASE + encodeURIComponent(digits) +
         '?fields=product_name,brands,quantity,nutrition_grades,nova_group,' +
-        'nutriments,ingredients_text,allergens_tags,additives_tags,categories_tags';
+        'nutriments,ingredients_text,allergens_tags,traces_tags,categories_tags';
       const res = await fetchWithProxies(url);
       if (id !== lookupId) return;
       if (!res.ok) {
@@ -672,472 +1919,9 @@
   }
 
   // ============================================================
-  // ==============  PERFIL DEL PACIENTE + PUNTUACIÓN  ==========
+  // ===================  VISOR Y DECODIFICACIÓN  ===============
   // ============================================================
 
-  const PROFILE_KEY = 'barcodeScanner.paciente.v1';
-
-  const CONDITIONS = [
-    { id: 'type1diabetes', label: 'Diabetes tipo 1',        icon: '💉' },
-    { id: 'diabetes',      label: 'Diabetes tipo 2',        icon: '🩸' },
-    { id: 'prediabetes',   label: 'Prediabetes',            icon: '🩺' },
-    { id: 'hbp',           label: 'Hipertensión',           icon: '❤️' },
-    { id: 'cholesterol',   label: 'Colesterol alto',        icon: '🫀' },
-    { id: 'ckd',           label: 'Enfermedad renal',       icon: '🫘' },
-    { id: 'obesity',       label: 'Control de peso',        icon: '⚖️' },
-    { id: 'gout',          label: 'Gota',                   icon: '🦴' },
-    { id: 'ibs',           label: 'SII / Intestino irritable', icon: '🌀' },
-    { id: 'celiac',        label: 'Celiaquía',              icon: '🌾' },
-    { id: 'lactose',       label: 'Intolerancia a la lactosa', icon: '🥛' },
-    { id: 'nutallergy',    label: 'Alergia a frutos secos', icon: '🥜' },
-    { id: 'pregnancy',     label: 'Embarazo',               icon: '🤰' }
-  ];
-
-  const NUTRIENT_LABELS = {
-    energy: 'Calorías', fat: 'Grasas', saturated: 'Grasas saturadas',
-    sugars: 'Azúcares', salt: 'Sal', carbohydrates: 'Carbohidratos',
-    fiber: 'Fibra', proteins: 'Proteínas'
-  };
-
-  // Umbrales de semáforo delantero (FSA / NHS), por 100 g.
-  const TL = {
-    fat:       { green: 3.0, red: 17.5, label: 'Grasas' },
-    saturated: { green: 1.5, red: 5.0,  label: 'Grasas saturadas' },
-    sugars:    { green: 5.0, red: 22.5, label: 'Azúcares' },
-    salt:      { green: 0.3, red: 1.5,  label: 'Sal' }
-  };
-
-  // Parámetros revisados por condición. Los pesos indican cuánto importa
-  // cada nutriente para esa condición; los nutrientes ausentes en la regla
-  // no se tienen en cuenta para esa condición.
-  const CONDITION_RULES = {
-    // Diabetes tipo 1: el impacto glucémico inmediato depende sobre todo de
-    // azúcares y carga de carbohidratos. La fibra ralentiza la absorción.
-    type1diabetes: { nutrients: { sugars: 3, carbohydrates: 2, fiber: 2 } },
-
-    // Diabetes tipo 2: resistencia a la insulina. Azúcares y carbohidratos
-    // refinados son clave; la fibra es claramente beneficiosa.
-    diabetes:      { nutrients: { sugars: 3, carbohydrates: 1.5, fiber: 2, energy: 1 } },
-
-    // Prediabetes: mismo foco que tipo 2 con algo más de peso al total de
-    // carbohidratos y a la densidad energética para prevenir progresión.
-    prediabetes:   { nutrients: { sugars: 3, carbohydrates: 2, fiber: 2, energy: 1 } },
-
-    // Hipertensión: el sodio (sal) es el factor dietético dominante. La
-    // grasa saturada se incluye por riesgo cardiovascular asociado.
-    hbp:           { nutrients: { salt: 4, saturated: 1.5 } },
-
-    // Colesterol alto: la grasa saturada es el principal determinante
-    // dietético del LDL. La fibra soluble ayuda a reducirlo.
-    cholesterol:   { nutrients: { saturated: 3.5, fat: 1, fiber: 2 } },
-
-    // Enfermedad renal: restricción de sodio y control de proteínas.
-    // La grasa saturada importa por el alto riesgo cardiovascular.
-    ckd:           { nutrients: { salt: 4, proteins: 2, saturated: 1 } },
-
-    // Control de peso: densidad energética primero, seguida de azúcares
-    // y grasa saturada. La fibra aporta saciedad.
-    obesity:       { nutrients: { energy: 3, sugars: 2, saturated: 1.5, fiber: 2 } },
-
-    // Gota: la fructosa/azúcares elevan el ácido úrico. También influyen
-    // el exceso de proteína y el sobrepeso.
-    gout:          { nutrients: { sugars: 2.5, proteins: 1.5, energy: 1 } },
-
-    // SII: la grasa y los azúcares son desencadenantes frecuentes. La fibra
-    // es ambigua (insoluble empeora, soluble ayuda) → sin peso.
-    ibs:           { nutrients: { fat: 2, sugars: 1.5 } },
-
-    // Embarazo: patrón dietético saludable general. El sodio no se
-    // restringe en embarazo normal (incluso aumenta la necesidad).
-    pregnancy:     { nutrients: { sugars: 2, saturated: 1.5, proteins: 1.5 } },
-
-    // Alérgenos: se comprueban contra allergens_tags.
-    celiac:        { allergen: 'gluten' },
-    lactose:       { allergen: 'milk' },
-    nutallergy:    { allergen: 'nuts' }
-  };
-
-  const DEFAULT_PROFILE = { age: '', sex: '', weight: '', conditions: {} };
-
-  function loadProfile() {
-    try {
-      const raw = localStorage.getItem(PROFILE_KEY);
-      if (!raw) return JSON.parse(JSON.stringify(DEFAULT_PROFILE));
-      const p = JSON.parse(raw);
-      return {
-        age: p && p.age != null ? p.age : '',
-        sex: p && p.sex != null ? p.sex : '',
-        weight: p && p.weight != null ? p.weight : '',
-        conditions: (p && p.conditions && typeof p.conditions === 'object') ? p.conditions : {}
-      };
-    } catch (_) {
-      return JSON.parse(JSON.stringify(DEFAULT_PROFILE));
-    }
-  }
-
-  function saveProfile() {
-    try { localStorage.setItem(PROFILE_KEY, JSON.stringify(profile)); }
-    catch (e) { log('No se pudo guardar el perfil: ' + (e.message || e), 'warn'); }
-  }
-
-  let profile = loadProfile();
-
-  const profileCard    = document.getElementById('profileCard');
-  const profileToggle  = document.getElementById('profileToggle');
-  const profileSummary = document.getElementById('profileSummary');
-  const condGrid       = document.getElementById('condGrid');
-  const pAge           = document.getElementById('pAge');
-  const pSex           = document.getElementById('pSex');
-  const pWeight        = document.getElementById('pWeight');
-
-  function updateProfileSummary() {
-    const ids = Object.keys(profile.conditions).filter(k => profile.conditions[k]);
-    const bits = [];
-    if (profile.age) bits.push(profile.age + 'a');
-    if (profile.sex) bits.push(profile.sex === 'male' ? 'H' : profile.sex === 'female' ? 'M' : 'O');
-    if (ids.length) {
-      bits.push(ids.map(id => {
-        const c = CONDITIONS.find(x => x.id === id);
-        return c ? c.icon : '';
-      }).join(''));
-    }
-    profileSummary.textContent = bits.length ? bits.join(' · ') : 'no configurado';
-  }
-
-  function buildConditionGrid() {
-    condGrid.innerHTML = '';
-    for (const c of CONDITIONS) {
-      const checked = !!profile.conditions[c.id];
-      const lab = document.createElement('label');
-      lab.className = 'cond' + (checked ? ' on' : '');
-      lab.dataset.id = c.id;
-      lab.innerHTML =
-        '<input type="checkbox"' + (checked ? ' checked' : '') + '>' +
-        '<span class="tick">✓</span>' +
-        '<span class="ico">' + c.icon + '</span>' +
-        '<span class="lbl">' + c.label + '</span>';
-      const cb = lab.querySelector('input');
-      cb.addEventListener('change', () => {
-        profile.conditions[c.id] = cb.checked;
-        lab.classList.toggle('on', cb.checked);
-        saveProfile();
-        updateProfileSummary();
-        renderAnalysis();
-      });
-      condGrid.appendChild(lab);
-    }
-  }
-
-  profileToggle.addEventListener('click', () => {
-    profileCard.classList.toggle('open');
-  });
-
-  pAge.addEventListener('input', () => {
-    profile.age = pAge.value; saveProfile(); updateProfileSummary(); renderAnalysis();
-  });
-  pSex.addEventListener('change', () => {
-    profile.sex = pSex.value; saveProfile(); updateProfileSummary(); renderAnalysis();
-  });
-  pWeight.addEventListener('input', () => {
-    profile.weight = pWeight.value; saveProfile(); updateProfileSummary();
-  });
-
-  pAge.value = profile.age;
-  pSex.value = profile.sex;
-  pWeight.value = profile.weight;
-  buildConditionGrid();
-  updateProfileSummary();
-
-  // ------------------------- nutrient extraction -------------------------
-
-  function pick() {
-    for (let i = 0; i < arguments.length; i++) {
-      if (arguments[i] != null) return arguments[i];
-    }
-    return null;
-  }
-
-  function numOr(v) {
-    if (v === '' || v == null) return null;
-    const n = Number(v);
-    return isFinite(n) ? n : null;
-  }
-
-  function extractNutrients(p) {
-    const nu = (p && p.nutriments) || {};
-    const sodium = numOr(nu.sodium_100g);
-    const salt   = pick(numOr(nu.salt_100g), sodium != null ? sodium * 2.5 : null);
-    const kcal   = numOr(nu['energy-kcal_100g']);
-    const kj     = numOr(nu.energy_100g);
-    const energy = pick(kcal, kj != null ? kj / 4.184 : null);
-    return {
-      energy:        energy,
-      fat:           numOr(nu.fat_100g),
-      saturated:     numOr(nu['saturated-fat_100g']),
-      carbohydrates: numOr(nu.carbohydrates_100g),
-      sugars:        numOr(nu.sugars_100g),
-      fiber:         numOr(nu.fiber_100g),
-      proteins:      numOr(nu.proteins_100g),
-      salt:          salt
-    };
-  }
-
-  // ------------------------- scoring primitives -------------------------
-
-  function bandScore(value, green, red) {
-    if (value == null) return null;
-    if (value <= 0) return 10;
-    if (value <= green) return 10 - 2 * (value / green);                  // 8..10
-    if (value <= red)   return 8 - 4 * ((value - green) / (red - green)); // 4..8
-    const over = Math.min(1, (value - red) / Math.max(red, 0.0001));
-    return Math.max(1, 4 - 3 * over);                                     // 1..4
-  }
-
-  function positiveScore(value, mid, high) {
-    if (value == null) return null;
-    if (value >= high) return 10;
-    if (value >= mid)  return 7 + 3 * ((value - mid) / (high - mid));
-    return 1 + 6 * (value / mid);
-  }
-
-  function scoreNutrient(key, n, condId) {
-    const v = n[key];
-    if (v == null) return null;
-    switch (key) {
-      case 'fat':           return bandScore(v, 3.0, 17.5);
-      case 'saturated':     return bandScore(v, 1.5, 5.0);
-      case 'sugars':        return bandScore(v, 5.0, 22.5);
-      case 'salt':          return bandScore(v, 0.3, 1.5);
-      case 'carbohydrates': return bandScore(v, 15, 60);
-      case 'energy':        return bandScore(v, 150, 400);
-      case 'fiber':         return positiveScore(v, 3, 6);
-      case 'proteins':
-        // En enfermedad renal una carga alta de proteínas es un riesgo.
-        if (condId === 'ckd') return bandScore(v, 6, 15);
-        return positiveScore(v, 8, 20);
-    }
-    return null;
-  }
-
-  function tlLevel(key, value) {
-    if (value == null) return null;
-    const t = TL[key];
-    if (value <= t.green) return 'green';
-    if (value <= t.red)   return 'amber';
-    return 'red';
-  }
-
-  function fmtNutrient(key, val) {
-    if (val == null) return '—';
-    if (key === 'energy') return Math.round(val) + ' kcal';
-    const dec = (key === 'salt' || key === 'saturated') ? 2 : 1;
-    return val.toFixed(dec) + ' g';
-  }
-
-  function scoreColor(score) {
-    if (score == null) return '#6b6b70';
-    if (score >= 7.5) return '#22c55e';
-    if (score >= 5)   return '#fbbf24';
-    if (score >= 3)   return '#fb923c';
-    return '#ef4444';
-  }
-
-  function scoreWord(score) {
-    if (score == null) return 'Datos insuficientes';
-    if (score >= 7.5) return 'Buena elección';
-    if (score >= 5)   return 'Aceptable con moderación';
-    if (score >= 3)   return 'Limitar consumo';
-    return 'Mejor evitar';
-  }
-
-  function generalScore(n) {
-    const parts = [
-      ['fat', 1], ['saturated', 2], ['sugars', 2], ['salt', 2],
-      ['fiber', 1.5], ['proteins', 1]
-    ];
-    let sum = 0, wsum = 0;
-    for (const [k, w] of parts) {
-      const s = scoreNutrient(k, n);
-      if (s == null) continue;
-      sum += s * w; wsum += w;
-    }
-    return wsum ? sum / wsum : null;
-  }
-
-  function scoreCondition(condId, n, allergens) {
-    const rule = CONDITION_RULES[condId];
-    if (!rule) return { score: null, alerts: [], good: [] };
-
-    if (rule.allergen) {
-      const has = (allergens || []).some(a =>
-        String(a).toLowerCase().indexOf(rule.allergen) !== -1);
-      if (has) return { score: 1, alerts: ['Contiene ' + rule.allergen + ' — evitar'], good: [] };
-      return { score: 10, alerts: [], good: ['Sin ' + rule.allergen + ' declarado'] };
-    }
-
-    let sum = 0, wsum = 0;
-    const alerts = [], good = [];
-    for (const key in rule.nutrients) {
-      if (!Object.prototype.hasOwnProperty.call(rule.nutrients, key)) continue;
-      const w = rule.nutrients[key];
-      const val = n[key];
-      const s = scoreNutrient(key, n, condId);
-      if (s == null || val == null) continue;
-      sum += s * w; wsum += w;
-      if (s <= 4) {
-        alerts.push(NUTRIENT_LABELS[key] + ' ' + fmtNutrient(key, val) +
-                    ' · ' + (s <= 2 ? 'muy alto' : 'alto'));
-      } else if (s >= 8.5 && (key === 'fiber' || key === 'proteins')) {
-        good.push('Buena cantidad de ' + NUTRIENT_LABELS[key].toLowerCase());
-      }
-    }
-    return { score: wsum ? sum / wsum : null, alerts, good };
-  }
-
-  // --------------------------- analysis render ---------------------------
-
-  function renderAnalysis() {
-    if (!lastProductData) {
-      analysisEl.innerHTML = '';
-      analysisEl.classList.remove('visible');
-      return;
-    }
-
-    const n = extractNutrients(lastProductData);
-    const allergens = lastProductData.allergens_tags || [];
-    const activeConds = CONDITIONS.map(c => c.id).filter(id => !!profile.conditions[id]);
-
-    const condResults = activeConds.map(id => {
-      const r = scoreCondition(id, n, allergens) || { score: null, alerts: [], good: [] };
-      return { id: id, score: r.score, alerts: r.alerts || [], good: r.good || [] };
-    });
-
-    let overall = null;
-    let overallLabel = '';
-    if (activeConds.length) {
-      const valid = condResults.filter(r => r.score != null);
-      if (valid.length) {
-        overall = valid.reduce((s, r) => s + r.score, 0) / valid.length;
-        overallLabel = 'Puntuación para tu perfil';
-      }
-    } else {
-      overall = generalScore(n);
-      overallLabel = 'Puntuación general';
-    }
-
-    const parts = [];
-
-    if (overall != null) {
-      const col = scoreColor(overall);
-      parts.push(
-        '<div class="score-wrap">' +
-          '<div class="score-circle" style="--c:' + col + '">' + overall.toFixed(1) + '</div>' +
-          '<div class="score-meta">' +
-            '<div class="score-title" style="color:' + col + '">' + scoreWord(overall) + '</div>' +
-            '<div class="score-sub">' + overallLabel + ' · valores por 100 g</div>' +
-          '</div>' +
-        '</div>'
-      );
-    }
-
-    const tlRows = [];
-    for (const k of ['sugars', 'salt', 'saturated', 'fat']) {
-      if (n[k] == null) continue;
-      const lvl = tlLevel(k, n[k]);
-      const c = lvl === 'green' ? '#22c55e'
-              : lvl === 'amber' ? '#fbbf24'
-              : lvl === 'red'   ? '#ef4444'
-              : '#3a3a40';
-      const pct = Math.min(100, (n[k] / (TL[k].red * 1.6)) * 100);
-      tlRows.push(
-        '<div class="tl-row">' +
-          '<span class="tl-dot" style="background:' + c + '"></span>' +
-          '<span class="tl-name">' + TL[k].label + '</span>' +
-          '<span class="tl-bar"><span class="tl-fill" style="width:' + pct + '%;background:' + c + '"></span></span>' +
-          '<span class="tl-val">' + fmtNutrient(k, n[k]) + '</span>' +
-        '</div>'
-      );
-    }
-    if (tlRows.length) {
-      parts.push('<div class="tl-title">Semáforo nutricional</div>' + tlRows.join(''));
-    }
-
-    const posRows = [];
-    for (const [k, maxVal] of [['fiber', 8], ['proteins', 25]]) {
-      if (n[k] == null) continue;
-      const s = scoreNutrient(k, n);
-      const c = scoreColor(s);
-      const pct = Math.min(100, (n[k] / maxVal) * 100);
-      posRows.push(
-        '<div class="tl-row">' +
-          '<span class="tl-dot" style="background:' + c + '"></span>' +
-          '<span class="tl-name">' + NUTRIENT_LABELS[k] + '</span>' +
-          '<span class="tl-bar"><span class="tl-fill" style="width:' + pct + '%;background:' + c + '"></span></span>' +
-          '<span class="tl-val">' + fmtNutrient(k, n[k]) + '</span>' +
-        '</div>'
-      );
-    }
-    if (posRows.length) {
-      parts.push('<div class="tl-title">Beneficiosos</div>' + posRows.join(''));
-    }
-
-    if (activeConds.length) {
-      const cards = [];
-      for (const r of condResults) {
-        const cdef = CONDITIONS.find(x => x.id === r.id) || { label: r.id, icon: '' };
-        const s = r.score;
-        const hasAlerts = r.alerts && r.alerts.length > 0;
-        const hasGood   = r.good && r.good.length > 0;
-        if (s == null && !hasAlerts && !hasGood) continue;
-
-        const cls = s == null ? '' : s >= 7.5 ? 'good' : s >= 5 ? 'warn' : 'bad';
-        const notes = [];
-        if (hasAlerts) notes.push('⚠ ' + r.alerts.join(' · '));
-        else if (s != null && s >= 7.5) notes.push('✓ Sin problemas importantes');
-        if (hasGood) notes.push('✓ ' + r.good.join(' · '));
-
-        cards.push(
-          '<div class="cond-card ' + cls + '">' +
-            '<div class="cond-head">' +
-              '<span class="ico">' + cdef.icon + '</span>' +
-              '<span>' + cdef.label + '</span>' +
-              '<span class="cond-score" style="color:' + scoreColor(s) + '">' +
-                (s == null ? '—' : s.toFixed(1) + '/10') +
-              '</span>' +
-            '</div>' +
-            (notes.length ? '<div class="cond-note">' + notes.join('<br>') + '</div>' : '') +
-          '</div>'
-        );
-      }
-      if (cards.length) {
-        parts.push(
-          '<div class="tl-title">Para tus condiciones</div>' +
-          '<div class="cond-list">' + cards.join('') + '</div>'
-        );
-      }
-    } else if (overall != null) {
-      parts.push(
-        '<div class="profile-note" style="margin-top:14px">' +
-        'Añade condiciones de salud en tu perfil para una puntuación personalizada.' +
-        '</div>'
-      );
-    }
-
-    if (parts.length) {
-      parts.push('<div class="profile-note">Solo orientativo — no es consejo médico.</div>');
-      analysisEl.innerHTML = parts.join('');
-      analysisEl.classList.add('visible');
-    } else {
-      analysisEl.innerHTML = '';
-      analysisEl.classList.remove('visible');
-    }
-  }
-
-  // ============================================================
-  // ===================  FIN PERFIL + PUNTUACIÓN  ==============
-  // ============================================================
-
-  // --------------------------------------------------- viewfinder region
   function getRegion(vw, vh) {
     return { x: 0.06, y: 0.18, w: 0.88, h: 0.64 };
   }
@@ -1169,15 +1953,12 @@
     flashTimer = setTimeout(() => rectEl.classList.remove('hit'), 450);
   }
 
-  // ---------------------------------------------------------- show value
   function show(text) {
     const now = Date.now();
     if (text === lastText && now - lastAt < DEDUPE_MS) return;
     lastText = text;
     lastAt = now;
 
-    // Demasiado corto → probable falso positivo. Se ignora y se sigue
-    // escaneando sin tocar la cámara ni la interfaz.
     if (typeof text !== 'string' || text.length < MIN_CODE_LENGTH) {
       log('Código demasiado corto, ignorado (' + text + ')', 'warn');
       return;
@@ -1187,42 +1968,13 @@
     codeEl.classList.add('hit');
     setTimeout(() => codeEl.classList.remove('hit'), 400);
 
-    const parsed = parseGS1(text);
-    showGS1(parsed);
     if (navigator.vibrate) navigator.vibrate(35);
 
     log('DECODIFICADO: ' + text.substring(0, 40) + (text.length > 40 ? '…' : ''), 'ok');
 
-    if (parsed) lookupOFF(text);
-    else { clearProduct(); lastLookupCode = ''; }
+    lookupOFF(text);
 
-    // Cada detección válida detiene la cámara para que el usuario lea el
-    // análisis. Toca de nuevo la pantalla para seguir escaneando.
     if (running) stop('Código detectado');
-  }
-
-  // ------------------------------------------------------- script loading
-  function loadScript(src) {
-    return new Promise((resolve, reject) => {
-      const s = document.createElement('script');
-      s.src = src; s.async = true;
-      s.onload = () => resolve();
-      s.onerror = () => { s.remove(); reject(new Error('No se pudo cargar ' + src)); };
-      document.head.appendChild(s);
-    });
-  }
-
-  async function loadZXing() {
-    if (window.ZXing) return window.ZXing;
-    let lastErr;
-    for (const url of ZXING_URLS) {
-      try {
-        log('ZXing: cargando…');
-        await loadScript(url);
-        if (window.ZXing) { log('ZXing: cargado', 'ok'); return window.ZXing; }
-      } catch (e) { lastErr = e; log('ZXing: fallo al cargar', 'warn'); }
-    }
-    throw lastErr || new Error('No se pudo cargar ZXing');
   }
 
   function setupZXingCore(ZX) {
@@ -1247,7 +1999,6 @@
     return zxingCore.reader.decodeWithState(bitmap);
   }
 
-  // ------------------------------------------------ camera acquisition
   async function acquireCamera() {
     const attempts = [
       { name: '1920x1080 trasera',
@@ -1324,7 +2075,6 @@
     }
   }
 
-  // ------------------------------------------------- crop + rotation
   function getCropRectPx(vw, vh) {
     const r = getRegion(vw, vh);
     let x = r.x * vw, y = r.y * vh, w = r.w * vw, h = r.h * vh;
@@ -1370,7 +2120,6 @@
     return rotCanvas;
   }
 
-  // ------------------------------------------------------- decoding
   async function tryDecode(canvas) {
     if (nativeDetector) {
       try {
@@ -1380,7 +2129,7 @@
           if (hit) { flashRect('hit'); show(hit.rawValue); return true; }
         }
       } catch (e) {
-        logThrottled('Error del detector nativo: ' + (e.message || e), 'err');
+        log('Error del detector nativo: ' + (e.message || e), 'err');
       }
     }
     if (zxingCore) {
@@ -1388,8 +2137,7 @@
         const result = zxingDecode(canvas);
         if (result) { flashRect('hit'); show(result.getText()); return true; }
       } catch (e) {
-        // NotFoundException / ChecksumException / FormatException:
-        // nada decodificado — lo esperado la mayoría de las veces.
+        // Nada decodificado en este intento.
       }
     }
     return false;
@@ -1422,7 +2170,7 @@
       lastTick = now;
       busy = true;
       detectTick()
-        .catch(e => logThrottled('Error de detección: ' + (e.message || e), 'err'))
+        .catch(e => log('Error de detección: ' + (e.message || e), 'err'))
         .finally(() => { busy = false; });
     }
     scheduleTick(runLoop);
@@ -1441,19 +2189,18 @@
     });
   }
 
-  // ------------------------------------------------------------- lifecycle
   async function start() {
-    if (running) return;
-    running = true;
+    if (running || !systemReady) return;
 
-    // Ocultar el toast mientras se escanea
-    clearTimeout(toastTimer);
-    toastEl.classList.remove('on');
+    // Al iniciar un escaneo, colapsamos el perfil.
+    if (isProfileOpen()) closeProfile();
+
+    setRunning(true);
+    hideToast();
     tapCatch.classList.add('off');
     fabsEl.hidden = false;
 
     codeEl.textContent = '—';
-    gs1El.textContent = '';
     clearProduct();
     lastText = '';
     lastLookupCode = '';
@@ -1494,25 +2241,34 @@
       log('Detector nativo no disponible (esperado en iOS Safari)', 'warn');
     }
 
-    setStatus(nativeDetector ? 'Escaneando · nativo' : 'Cargando decodificador…');
+    if (preloadedZXing) {
+      zxingCore = setupZXingCore(preloadedZXing);
+    } else {
+      setStatus('Cargando decodificador…');
+      loadZXingLibrary().then((ZX) => {
+        if (!running) return;
+        preloadedZXing = ZX;
+        zxingCore = setupZXingCore(ZX);
+      }).catch((e) => {
+        log('ZXing no cargó: ' + (e.message || e), nativeDetector ? 'warn' : 'err');
+        if (!nativeDetector) {
+          setStatus('Error: no hay decodificador disponible');
+          stop('Sin decodificador');
+        }
+      });
+    }
 
-    loadZXing().then((ZX) => {
-      if (!running) return;
-      zxingCore = setupZXingCore(ZX);
-      if (!nativeDetector) setStatus('Escaneando · ZXing');
-    }).catch((e) => {
-      log('ZXing no cargó: ' + (e.message || e), nativeDetector ? 'warn' : 'err');
-      if (!nativeDetector) {
-        setStatus('Error: no hay decodificador disponible');
-        stop('Sin decodificador');
-      }
-    });
-
+    setStatus('Escaneando…');
     runLoop();
   }
 
+  function setRunning(isRunning) {
+    running = isRunning;
+    document.body.classList.toggle('running', isRunning);
+  }
+
   function stop(reason) {
-    running = false;
+    setRunning(false);
     if (rafId) { cancelAnimationFrame(rafId); rafId = 0; }
     if (rvfcHandle && video.cancelVideoFrameCallback) {
       try { video.cancelVideoFrameCallback(rvfcHandle); } catch (_) {}
@@ -1535,15 +2291,25 @@
     setStatus(reason || 'Detenido');
     log(reason ? '--- detenido: ' + reason + ' ---' : '--- detenido ---');
 
-    // Aviso de 3 s: toca la pantalla para volver a escanear.
-    showToast('Toca la pantalla para escanear', TOAST_MS);
+    if (systemReady && !isProfileOpen()) {
+      showToast('Toca la pantalla para escanear', TOAST_MS);
+    }
   }
 
   // ------------------------------------------------------------- wiring
   tapCatch.addEventListener('click', (e) => {
     e.preventDefault();
+    if (!systemReady) return;
+    if (isProfileOpen()) { closeProfile(); return; }
     if (!running) start();
   });
+
+  document.addEventListener('click', (e) => {
+    if (!isProfileOpen()) return;
+    if (profileCard.contains(e.target)) return;
+    if (e.target === tapCatch) return;
+    closeProfile();
+  }, true);
 
   stopFab.addEventListener('click', (e) => {
     e.stopPropagation();
@@ -1561,7 +2327,6 @@
 
   window.addEventListener('pagehide', () => {
     if (running) {
-      // Parada silenciosa al abandonar la página (sin toast).
       running = false;
       if (rafId) { cancelAnimationFrame(rafId); rafId = 0; }
       if (rvfcHandle && video.cancelVideoFrameCallback) {
@@ -1577,8 +2342,7 @@
     if (document.hidden && running) stop('Pausado');
   });
 
-  // Toast inicial: indica al usuario que debe tocar la pantalla.
-  showToast('Toca la pantalla para escanear', TOAST_MS);
+  preload();
 })();
 </script>
 </body>
