@@ -4,7 +4,7 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
 <meta name="theme-color" content="#000000" />
-<title>Escáner de Códigos</title>
+<title>Escáner de Códigos - Anthony Rostron</title>
 <style>
   :root { color-scheme: dark; }
   * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
@@ -637,39 +637,6 @@
     showToast('Toca la pantalla para escanear', TOAST_MS);
     log('Sistema listo', 'ok');
   }
-
-  // ============================================================
-  // ============  ANÁLISIS DE ALÉRGENOS (multi-señal)  =========
-  // ============================================================
-  //
-  // Estrategia: Open Food Facts es una base de datos colaborativa y la
-  // mayoría de productos NO declaran explícitamente "sin gluten". Por eso
-  // usamos varias señales en orden decreciente de fiabilidad:
-  //
-  //   1. `allergens_tags`  → declaración oficial del fabricante (máxima)
-  //   2. `traces_tags`     → "puede contener trazas" (alta)
-  //   3. Ingredientes      → palabras clave en `ingredients_text` (media)
-  //   4. Categoría de riesgo del producto (media-baja)
-  //   5. Categoría naturalmente libre (media-baja)
-  //
-  // NUNCA garantizamos la ausencia de un alérgeno. La app solo informa de
-  // indicios; la única fuente fiable es la etiqueta física del envase.
-  //
-  // Los niveles posibles son (SOLO estos cuatro; nunca se afirma que un
-  // producto está "libre" de un alérgeno):
-  //   - 'contains'     → contiene el alérgeno (rojo)
-  //   - 'may-contain'  → trazas declaradas (rojo)
-  //   - 'check-label'  → sin declaración pero categoría de riesgo (ámbar)
-  //   - 'unknown'      → sin datos suficientes o categoría habitualmente
-  //                      libre (gris) — esto NUNCA implica ausencia real
-  //
-  // Cada resultado también incluye `evidence`, para que la interfaz pueda
-  // distinguir el origen de la información:
-  //   - 'declared'        → allergens_tags o traces_tags del fabricante
-  //   - 'ingredient-text' → coincidencia de palabra clave en ingredientes
-  //   - 'category-risk'   → inferido por la categoría del producto
-  //   - 'none'            → sin información suficiente
-  // ============================================================
 
   const ALLERGEN_DEFS = {
     gluten: {
