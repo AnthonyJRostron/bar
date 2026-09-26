@@ -68,7 +68,6 @@
   .fab[hidden] { display: none; }
   #torchFab.on { background: #fbbf24; color: #1a1a1a; border-color: #fbbf24; }
 
-  /* ---------------- Toast con barra de progreso ---------------- */
   #toast {
     position: absolute;
     left: 50%; top: 34%;
@@ -91,46 +90,27 @@
     line-height: 1.35;
   }
   #toast.on { opacity: 1; }
-
   #toast .toast-text { display: block; }
-
   #toast .toast-progress {
-    height: 0;
-    margin: 0;
-    opacity: 0;
+    height: 0; margin: 0; opacity: 0;
     background: rgba(255,255,255,0.14);
-    border-radius: 4px;
-    overflow: hidden;
+    border-radius: 4px; overflow: hidden;
     transition: height .3s ease, margin .3s ease, opacity .3s ease;
   }
   #toast .toast-bar {
-    display: block;
-    height: 100%;
-    width: 0%;
+    display: block; height: 100%; width: 0%;
     background: linear-gradient(90deg, #1f6feb 0%, #6ee7a8 100%);
     border-radius: 4px;
     transition: width .2s ease-out;
   }
   #toast .toast-pct {
-    height: 0;
-    margin: 0;
-    opacity: 0;
-    font-size: 11px;
-    color: #9aa0a6;
-    text-align: right;
+    height: 0; margin: 0; opacity: 0;
+    font-size: 11px; color: #9aa0a6; text-align: right;
     font-variant-numeric: tabular-nums;
     transition: height .3s ease, margin .3s ease, opacity .3s ease;
   }
-  #toast.loading .toast-progress {
-    height: 8px;
-    margin: 12px 0 6px;
-    opacity: 1;
-  }
-  #toast.loading .toast-pct {
-    height: auto;
-    margin: 0;
-    opacity: 1;
-  }
+  #toast.loading .toast-progress { height: 8px; margin: 12px 0 6px; opacity: 1; }
+  #toast.loading .toast-pct { height: auto; margin: 0; opacity: 1; }
 
   #topbar {
     position: absolute; top: 0; left: 0; right: 0;
@@ -158,6 +138,7 @@
     max-height: 82%;
     scrollbar-width: thin;
     scrollbar-color: rgba(255,255,255,0.22) rgba(255,255,255,0.04);
+    scroll-behavior: smooth;
   }
   body.running #panel { max-height: 46%; }
 
@@ -172,11 +153,6 @@
     transition: color .12s ease;
   }
   #code.hit { color: #6ee7a8; }
-
-  #gs1 {
-    margin-top: 8px; font-size: 13px; color: #9aa0a6;
-    text-align: center; line-height: 1.6;
-  }
 
   #product {
     margin-top: 14px; padding-top: 12px; border-top: 1px solid #2a2a2e;
@@ -201,7 +177,7 @@
   #ingredients.visible { display: block; }
   #ingredients b { color: #d0d0d5; font-weight: 700; display: block; margin-bottom: 4px; }
 
-  /* ===================== PERFIL DEL PACIENTE ===================== */
+  /* ===================== PERFIL ===================== */
   #profileCard {
     margin-bottom: 12px;
     border: 1px solid rgba(255,255,255,0.09);
@@ -261,19 +237,24 @@
   .cond.exclusive .tick { border-radius: 50%; }
   .cond .ico { font-size: 15px; flex: 0 0 auto; }
 
-  .profile-note { font-size: 11px; color: #6b6b70; margin-top: 12px; text-align: center; }
+  .profile-note { font-size: 11px; color: #6b6b70; margin-top: 12px; text-align: center; line-height: 1.55; }
+  .profile-note.warn { color: #fbbf24; }
 
   /* ===================== ANÁLISIS ===================== */
   #analysis { display: none; }
   #analysis.visible { display: block; }
 
-  .allergen-warning {
+  /* Banner de alérgenos — dos niveles: rojo (contiene/puede contener)
+     y ámbar (verificar etiqueta). */
+  .allergen-banner {
     display: flex; gap: 14px; align-items: flex-start;
-    background: linear-gradient(135deg, #7f1d1d 0%, #991b1b 100%);
-    border: 2px solid #ef4444;
     border-radius: 14px;
     padding: 15px 16px;
     margin: 14px 0 6px;
+  }
+  .allergen-banner.danger {
+    background: linear-gradient(135deg, #7f1d1d 0%, #991b1b 100%);
+    border: 2px solid #ef4444;
     box-shadow: 0 0 0 3px rgba(239,68,68,0.15), 0 10px 28px -8px rgba(239,68,68,0.7);
     animation: allergen-pulse 2.2s ease-in-out infinite;
   }
@@ -281,20 +262,32 @@
     0%, 100% { box-shadow: 0 0 0 3px rgba(239,68,68,0.15), 0 10px 28px -8px rgba(239,68,68,0.7); }
     50%      { box-shadow: 0 0 0 7px rgba(239,68,68,0.28), 0 10px 34px -6px rgba(239,68,68,1); }
   }
-  .allergen-warning .aw-icon {
+  .allergen-banner.caution {
+    background: linear-gradient(135deg, #78350f 0%, #92400e 100%);
+    border: 2px solid #f59e0b;
+    box-shadow: 0 0 0 3px rgba(245,158,11,0.15), 0 10px 28px -8px rgba(245,158,11,0.65);
+  }
+  .allergen-banner .aw-icon {
     font-size: 30px; line-height: 1; flex: 0 0 auto;
     filter: drop-shadow(0 2px 4px rgba(0,0,0,0.5));
   }
-  .allergen-warning .aw-body { flex: 1; min-width: 0; }
-  .allergen-warning .aw-title {
+  .allergen-banner .aw-body { flex: 1; min-width: 0; }
+  .allergen-banner .aw-title {
     font-size: 14.5px; font-weight: 800; letter-spacing: .8px;
     color: #fff; text-transform: uppercase;
   }
-  .allergen-warning .aw-item {
-    font-size: 13.5px; color: #fee2e2; margin-top: 6px; line-height: 1.45;
+  .allergen-banner .aw-item {
+    font-size: 13.5px; margin-top: 6px; line-height: 1.45;
     font-weight: 600;
   }
-  .allergen-warning .aw-item .ico { font-size: 16px; margin-right: 4px; }
+  .allergen-banner.danger  .aw-item { color: #fee2e2; }
+  .allergen-banner.caution .aw-item { color: #fef3c7; }
+  .allergen-banner .aw-item .ico { font-size: 16px; margin-right: 4px; }
+  .allergen-banner .aw-sub {
+    font-size: 11px; margin-top: 8px; line-height: 1.5;
+    color: rgba(255,255,255,0.72); font-weight: 400;
+    border-top: 1px solid rgba(255,255,255,0.15); padding-top: 8px;
+  }
 
   .score-wrap {
     display: flex; align-items: center; gap: 14px;
@@ -337,6 +330,7 @@
   .cond-card.good { border-left-color: #22c55e; }
   .cond-card.warn { border-left-color: #fbbf24; }
   .cond-card.bad  { border-left-color: #ef4444; }
+  .cond-card.neutral { border-left-color: #6b7280; }
   .cond-head {
     display: flex; align-items: center; gap: 8px;
     font-size: 13px; font-weight: 700;
@@ -346,9 +340,11 @@
     margin-left: auto; font-size: 13.5px;
     font-variant-numeric: tabular-nums; font-weight: 800;
   }
+  .cond-score.txt { font-size: 10.5px; letter-spacing: .4px; text-transform: uppercase; }
   .cond-note {
     font-size: 11.5px; color: #9aa0a6; margin-top: 5px; line-height: 1.5;
   }
+  .cond-note strong { color: #e5e7eb; }
 </style>
 </head>
 <body>
@@ -391,13 +387,18 @@
 
           <div class="profile-note">
             Las opciones de diabetes son excluyentes entre sí.<br>
-            Guardado solo en este dispositivo · no es consejo médico.
+            Guardado solo en este dispositivo · no es consejo médico.<br>
+            Las puntuaciones y alertas son orientativas y no sustituyen el consejo
+            de un profesional sanitario.
+          </div>
+          <div class="profile-note warn">
+            Si tienes celiaquía u otra alergia alimentaria, la única garantía
+            es leer la etiqueta del envase físico.
           </div>
         </div>
       </div>
 
       <div id="code">—</div>
-      <div id="gs1"></div>
       <div id="product">
         <div class="name"></div>
         <div class="brand"></div>
@@ -417,7 +418,6 @@
   const stage     = document.getElementById('stage');
   const rectEl    = document.getElementById('rect');
   const codeEl    = document.getElementById('code');
-  const gs1El     = document.getElementById('gs1');
   const productEl = document.getElementById('product');
   const nameEl    = productEl.querySelector('.name');
   const brandEl   = productEl.querySelector('.brand');
@@ -425,6 +425,7 @@
   const ingredientsEl = document.getElementById('ingredients');
   const analysisEl    = document.getElementById('analysis');
   const statusEl  = document.getElementById('status');
+  const panelEl   = document.getElementById('panel');
   const tapCatch  = document.getElementById('tapCatch');
   const toastEl   = document.getElementById('toast');
   const toastTextEl = toastEl.querySelector('.toast-text');
@@ -455,42 +456,6 @@
     'https://unpkg.com/@zxing/library@0.21.3/umd/index.min.js',
     'https://cdn.jsdelivr.net/npm/@zxing/library@0.21.3/umd/index.min.js'
   ];
-
-  const GS1_PREFIXES = {
-    '000':'EE.UU./Canadá','001':'EE.UU./Canadá','002':'EE.UU./Canadá','003':'EE.UU./Canadá',
-    '004':'EE.UU./Canadá','005':'EE.UU./Canadá','006':'EE.UU./Canadá','007':'EE.UU./Canadá',
-    '008':'EE.UU./Canadá','009':'EE.UU./Canadá','010':'EE.UU./Canadá','011':'EE.UU./Canadá',
-    '012':'EE.UU./Canadá','013':'EE.UU./Canadá','014':'EE.UU./Canadá','015':'EE.UU./Canadá',
-    '016':'EE.UU./Canadá','017':'EE.UU./Canadá','018':'EE.UU./Canadá','019':'EE.UU./Canadá',
-    '020':'EE.UU./Canadá (restringido)','029':'EE.UU./Canadá (restringido)',
-    '030':'EE.UU. (GS1 US)','036':'EE.UU. (GS1 US)','037':'EE.UU. (GS1 US)',
-    '038':'EE.UU. (GS1 US)','039':'EE.UU. (GS1 US)','040':'EE.UU. (GS1 US)',
-    '050':'EE.UU. (GS1 US)','060':'EE.UU. (GS1 US)','070':'EE.UU. (GS1 US)',
-    '080':'EE.UU. (GS1 US)','090':'EE.UU. (GS1 US)','100':'EE.UU. (GS1 US)',
-    '110':'EE.UU. (GS1 US)','120':'EE.UU. (GS1 US)','130':'EE.UU. (GS1 US)',
-    '200':'Distribución restringida',
-    '300':'Francia','310':'Francia','320':'Francia','330':'Francia','340':'Francia',
-    '350':'Francia','360':'Francia','370':'Francia','380':'Bulgaria',
-    '400':'Alemania','410':'Alemania','420':'Alemania','430':'Alemania','440':'Alemania',
-    '450':'Japón','460':'Rusia','470':'Kirguistán','480':'Filipinas','490':'Japón',
-    '500':'Reino Unido','509':'Reino Unido',
-    '520':'Grecia','530':'Chipre','540':'Bélgica/Luxemburgo',
-    '560':'Portugal','570':'Dinamarca','590':'Polonia',
-    '600':'Sudáfrica','610':'Mauricio','620':'Tanzania',
-    '640':'Finlandia','690':'China','693':'China','694':'China',
-    '700':'Noruega','729':'Israel','740':'Guatemala',
-    '750':'México','760':'Suiza','770':'Colombia',
-    '775':'Perú','779':'Argentina','780':'Chile',
-    '789':'Brasil','790':'Brasil',
-    '800':'Italia','810':'Italia','820':'Italia','830':'Italia',
-    '840':'España','850':'Cuba','858':'Eslovaquia',
-    '860':'Serbia','869':'Turquía','870':'Países Bajos',
-    '880':'Corea del Sur','885':'Tailandia','888':'Singapur',
-    '890':'India','893':'Vietnam','899':'Indonesia',
-    '900':'Austria','910':'Austria','920':'Austria',
-    '930':'Australia','940':'Nueva Zelanda','950':'Taiwán',
-    '955':'Malasia','958':'Macao'
-  };
 
   const DETECT_INTERVAL      = 100;
   const DEDUPE_MS            = 1500;
@@ -545,6 +510,12 @@
   }
 
   function setStatus(t) { statusEl.textContent = t; }
+
+  function escapeHtml(s) {
+    return String(s).replace(/[&<>"']/g, (c) => ({
+      '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
+    }[c]));
+  }
 
   // -------------------------------------------------- toast + progreso
   function renderLoadProgress() {
@@ -632,10 +603,8 @@
 
   async function preload() {
     const t0 = Date.now();
-
     showLoadingToast('Preparando el escáner…');
     setLoadProgress(5, 'Preparando el escáner…');
-
     await delay(120);
 
     try {
@@ -666,146 +635,386 @@
     tapCatch.classList.remove('blocked');
     setStatus('Toca la pantalla para escanear');
     showToast('Toca la pantalla para escanear', TOAST_MS);
-
     log('Sistema listo', 'ok');
   }
 
-  // ------------------------------------------------------------ GS1 parse
-  function parseGS1(raw) {
-    const code = String(raw).replace(/\D/g, '');
-    if (code.length !== 12 && code.length !== 13) return null;
+  // ============================================================
+  // ============  ANÁLISIS DE ALÉRGENOS (multi-señal)  =========
+  // ============================================================
+  //
+  // Estrategia: Open Food Facts es una base de datos colaborativa y la
+  // mayoría de productos NO declaran explícitamente "sin gluten". Por eso
+  // usamos varias señales en orden decreciente de fiabilidad:
+  //
+  //   1. `allergens_tags`  → declaración oficial del fabricante (máxima)
+  //   2. `traces_tags`     → "puede contener trazas" (alta)
+  //   3. Ingredientes      → palabras clave en `ingredients_text` (media)
+  //   4. Categoría de riesgo del producto (media-baja)
+  //   5. Categoría naturalmente libre (media-baja)
+  //
+  // NUNCA garantizamos la ausencia de un alérgeno. La app solo informa de
+  // indicios; la única fuente fiable es la etiqueta física del envase.
+  //
+  // Los niveles posibles son (SOLO estos cuatro; nunca se afirma que un
+  // producto está "libre" de un alérgeno):
+  //   - 'contains'     → contiene el alérgeno (rojo)
+  //   - 'may-contain'  → trazas declaradas (rojo)
+  //   - 'check-label'  → sin declaración pero categoría de riesgo (ámbar)
+  //   - 'unknown'      → sin datos suficientes o categoría habitualmente
+  //                      libre (gris) — esto NUNCA implica ausencia real
+  //
+  // Cada resultado también incluye `evidence`, para que la interfaz pueda
+  // distinguir el origen de la información:
+  //   - 'declared'        → allergens_tags o traces_tags del fabricante
+  //   - 'ingredient-text' → coincidencia de palabra clave en ingredientes
+  //   - 'category-risk'   → inferido por la categoría del producto
+  //   - 'none'            → sin información suficiente
+  // ============================================================
 
-    const full         = code.length === 12 ? '0' + code : code;
-    const prefix       = full.substring(0, 3);
-    const manufacturer = full.substring(3, 8);
-    const productCode  = full.substring(8, 12);
-    const checkDigit   = full.substring(12, 13);
+  const ALLERGEN_DEFS = {
+    gluten: {
+      label: 'gluten',
+      tags: ['gluten'],
+      keywords: [
+        'gluten','trigo','wheat','cebada','barley','centeno','rye',
+        'espelta','spelt','kamut','triticale','malta','malt',
+        'sémola','semolina','cuscús','couscous','seitán','seitan',
+        'harina de trigo','wheat flour','pan rallado','breadcrumb',
+        'panko','bulgur','farro','orzo','avena','oat','cerveza','beer',
+        'pasta de trigo','wheat pasta','fideos','noodle','galleta',
+        'biscuit','bizcocho','pastel','croissant','pizza','empanada',
+        'rebozado','breaded','wheat starch','almidón de trigo','durum',
+        'escanda','candeal'
+      ],
+      highRiskCategories: [
+        'bread','pasta','noodle','cereal','breakfast-cereal','biscuit',
+        'cookie','cake','pastry','pizza','beer','flour','cracker',
+        'snack','couscous','seitan','semolina','croissant','waffle',
+        'pancake','pie','tart','donut','muffin','brownie','granola',
+        'muesli','porridge','bulgur','spelt','sandwich','burger',
+        'quiche','lasagna','ravioli','gnocchi','tempura'
+      ],
+      lowRiskCategories: [
+        'fresh-vegetable','fresh-fruit','vegetable','fruit','meat',
+        'fish','milk','dairy','egg','rice','potato','legume','pulse',
+        'water','wine','coffee','tea','honey','sugar','salt','oil',
+        'spice','herb'
+      ]
+    },
 
-    let sum = 0;
-    for (let i = 0; i < 12; i++) sum += Number(full[i]) * (i % 2 === 0 ? 1 : 3);
-    const calc  = (10 - (sum % 10)) % 10;
-    const valid = calc === Number(checkDigit);
+    milk: {
+      label: 'lactosa',
+      tags: ['milk'],
+      keywords: [
+        'leche','milk','lactosa','lactose','suero','whey','caseína',
+        'casein','caseinato','caseinate','mantequilla','butter','nata',
+        'cream','queso','cheese','yogur','yogurt','yoghurt','ghee',
+        'requesón','ricotta','mascarpone','cuajada','lactoalbumina',
+        'lactoglobulina'
+      ],
+      highRiskCategories: [
+        'milk','dairy','cheese','yogurt','yoghurt','cream','butter',
+        'ice-cream','chocolate','cake','biscuit','pastry','margarine',
+        'dressing'
+      ],
+      lowRiskCategories: [
+        'fresh-vegetable','fresh-fruit','vegetable','fruit','meat',
+        'fish','water','wine','coffee','tea','oil','vinegar','salt',
+        'sugar','spice','herb','rice','potato','legume'
+      ]
+    },
 
-    let country = GS1_PREFIXES[prefix] || GS1_PREFIXES[prefix.substring(0, 2)] || null;
+    nuts: {
+      label: 'frutos secos',
+      tags: ['nuts'],
+      keywords: [
+        'almendra','almond','avellana','hazelnut','nuez','walnut',
+        'nueces','pecana','pecan','anacardo','cashew','pistacho',
+        'pistachio','macadamia','brazil nut','castaña','chestnut',
+        'piñón','pine nut','praliné','praline','nogal','corylus',
+        'prunus dulcis'
+      ],
+      highRiskCategories: [
+        'chocolate','ice-cream','cake','biscuit','pastry','snack',
+        'cereal','granola','muesli','pesto','spread','truffle',
+        'nougat','turrón','marzipan','mazapán'
+      ],
+      lowRiskCategories: [
+        'fresh-vegetable','fresh-fruit','vegetable','fruit','meat',
+        'fish','milk','dairy','water','wine','coffee','tea','rice',
+        'potato','legume'
+      ]
+    },
 
-    return {
-      full,
-      format: code.length === 12 ? 'UPC-A' : 'EAN-13',
-      prefix, manufacturer, productCode, checkDigit, valid,
-      country: country || 'Desconocido / ver lista de prefijos GS1'
-    };
+    egg: {
+      label: 'huevo',
+      tags: ['egg'],
+      keywords: [
+        'huevo','egg','clara de huevo','yema','yolk','albumen',
+        'ovalbúmina','ovomucoide','lisozima','lysozyme','ovoalbúmina',
+        'ovotransferrina','lecitina de huevo','egg lecithin'
+      ],
+      highRiskCategories: [
+        'egg','cake','biscuit','pastry','mayonnaise','mayonesa',
+        'pasta','noodle','ice-cream','meringue','merengue'
+      ],
+      lowRiskCategories: [
+        'fresh-vegetable','fresh-fruit','vegetable','fruit','meat',
+        'fish','milk','dairy','water','wine','coffee','tea','rice',
+        'potato','legume'
+      ]
+    },
+
+    soy: {
+      label: 'soja',
+      tags: ['soybeans','soy'],
+      keywords: [
+        'soja','soya','soy','tofu','edamame','miso','tempeh','tamari',
+        'lecitina de soja','soy lecithin','proteína de soja',
+        'soy protein','haba de soja','soybean'
+      ],
+      highRiskCategories: [
+        'soy','tofu','sauce','dressing','chocolate','snack','cereal',
+        'biscuit','cake','ice-cream','margarine','spread'
+      ],
+      lowRiskCategories: [
+        'fresh-vegetable','fresh-fruit','vegetable','fruit','meat',
+        'fish','milk','dairy','water','wine','coffee','tea','rice',
+        'potato'
+      ]
+    },
+
+    crustacean: {
+      label: 'marisco',
+      tags: ['crustacean'],
+      keywords: [
+        'gamba','gambas','shrimp','prawn','langostino','cangrejo',
+        'crab','langosta','lobster','bogavante','cigala','krill',
+        'camarón','nécora','centollo','marisco','shellfish'
+      ],
+      highRiskCategories: [
+        'seafood','fish','sauce','paella','soup','surimi'
+      ],
+      lowRiskCategories: [
+        'fresh-vegetable','fresh-fruit','vegetable','fruit','meat',
+        'milk','dairy','water','wine','coffee','tea','rice','potato',
+        'legume'
+      ]
+    },
+
+    sesame: {
+      label: 'sésamo',
+      tags: ['sesame'],
+      keywords: [
+        'sésamo','sesame','ajonjolí','tahini','tahina','benne',
+        'halva','halwa'
+      ],
+      highRiskCategories: [
+        'bread','biscuit','cracker','snack','sauce','dressing',
+        'hummus','tahini'
+      ],
+      lowRiskCategories: [
+        'fresh-vegetable','fresh-fruit','vegetable','fruit','meat',
+        'fish','milk','dairy','water','wine','coffee','tea','rice',
+        'potato','legume'
+      ]
+    },
+
+    sulphite: {
+      label: 'sulfitos',
+      tags: ['sulphur-dioxide','sulphite','sulfite'],
+      keywords: [
+        'sulfito','sulphite','sulfite','metabisulfito','metabisulphite',
+        'e220','e221','e222','e223','e224','e225','e226','e227','e228',
+        'dióxido de azufre','sulphur dioxide','sulfur dioxide'
+      ],
+      highRiskCategories: [
+        'wine','beer','dried-fruit','juice','vinegar','preserve',
+        'jam','syrup'
+      ],
+      lowRiskCategories: [
+        'fresh-vegetable','fresh-fruit','vegetable','fruit','meat',
+        'fish','milk','dairy','water','coffee','tea','rice','potato',
+        'legume','oil','salt','sugar'
+      ]
+    },
+
+    peanut: {
+      label: 'cacahuetes',
+      tags: ['peanuts', 'peanut'],
+      keywords: [
+        'cacahuete','cacahuetes','cacahuate','maní','mani','peanut',
+        'peanuts','arachis','arachide','manteca de cacahuete',
+        'peanut butter','crema de cacahuete','aceite de cacahuete',
+        'peanut oil','harina de cacahuete','peanut flour','groundnut'
+      ],
+      highRiskCategories: [
+        'peanut','snack','chocolate','biscuit','cake','pastry',
+        'sauce','satay','granola','muesli','ice-cream','spread',
+        'nougat','turrón'
+      ],
+      lowRiskCategories: [
+        'fresh-vegetable','fresh-fruit','vegetable','fruit','meat',
+        'fish','milk','dairy','egg','water','wine','coffee','tea',
+        'rice','potato'
+      ]
+    },
+
+    fish: {
+      label: 'pescado',
+      tags: ['fish'],
+      keywords: [
+        'pescado','fish','salmón','salmon','atún','atun','tuna',
+        'bacalao','cod','merluza','hake','anchoa','anchovy','sardina',
+        'sardine','trucha','trout','caballa','mackerel','lenguado',
+        'sole','gelatina de pescado','fish gelatin','surimi',
+        'gelatina de pescado','worcestershire','salsa worcester',
+        'colapez','isinglass','caviar','huevas','roe','garum'
+      ],
+      highRiskCategories: [
+        'fish','seafood','sauce','soup','paella','surimi','pate',
+        'paté','spread','dip'
+      ],
+      lowRiskCategories: [
+        'fresh-vegetable','fresh-fruit','vegetable','fruit','meat',
+        'milk','dairy','egg','water','wine','coffee','tea','rice',
+        'potato','legume'
+      ]
+    },
+
+    mollusc: {
+      label: 'moluscos',
+      tags: ['molluscs', 'mollusc'],
+      keywords: [
+        'molusco','moluscos','mollusc','molluscs','almeja','almejas',
+        'clam','mejillón','mejillones','mussel','ostra','ostras',
+        'oyster','vieira','vieiras','scallop','calamar','calamares',
+        'squid','pulpo','octopus','sepia','cuttlefish','caracol',
+        'caracoles','snail','berberecho','cockle','navaja','razor clam'
+      ],
+      highRiskCategories: [
+        'seafood','fish','sauce','paella','soup'
+      ],
+      lowRiskCategories: [
+        'fresh-vegetable','fresh-fruit','vegetable','fruit','meat',
+        'milk','dairy','egg','water','wine','coffee','tea','rice',
+        'potato','legume'
+      ]
+    },
+
+    celery: {
+      label: 'apio',
+      tags: ['celery'],
+      keywords: [
+        'apio','celery','apionabo','celeriac','celery salt',
+        'sal de apio','celery seed','semilla de apio','celery leaf',
+        'celery powder','polvo de apio','extracto de apio'
+      ],
+      highRiskCategories: [
+        'soup','sauce','stock','caldo','broth','seasoning',
+        'condiment','salad','ensalada','spice-mix'
+      ],
+      lowRiskCategories: [
+        'fresh-fruit','fruit','milk','dairy','egg','water','wine',
+        'coffee','tea','rice'
+      ]
+    },
+
+    mustard: {
+      label: 'mostaza',
+      tags: ['mustard'],
+      keywords: [
+        'mostaza','mustard','sinapis','mustard seed','semilla de mostaza',
+        'mustard flour','harina de mostaza','mustard oil','aceite de mostaza',
+        'dijon','dijón'
+      ],
+      highRiskCategories: [
+        'sauce','dressing','condiment','mayonnaise','mayonesa',
+        'ketchup','mustard','salad','ensalada','marinade'
+      ],
+      lowRiskCategories: [
+        'fresh-fruit','fruit','milk','dairy','egg','water','wine',
+        'coffee','tea','rice'
+      ]
+    },
+
+    lupin: {
+      label: 'altramuces',
+      tags: ['lupin'],
+      keywords: [
+        'altramuz','altramuces','lupino','lupin','lupine','lupinus',
+        'harina de altramuz','lupin flour','proteína de altramuz',
+        'lupin protein'
+      ],
+      highRiskCategories: [
+        'flour','bread','pastry','biscuit','cake','gluten-free',
+        'vegetarian','vegan','plant-based-food'
+      ],
+      lowRiskCategories: [
+        'fresh-vegetable','fresh-fruit','vegetable','fruit','meat',
+        'fish','milk','dairy','egg','water','wine','coffee','tea',
+        'rice','potato'
+      ]
+    }
+  };
+
+  function normalizeTag(t) {
+    return String(t || '').toLowerCase().replace(/^[a-z]{2}:/, '');
   }
 
-  function showGS1(parsed) {
-    if (!parsed) { gs1El.textContent = ''; return; }
-    gs1El.innerHTML =
-      parsed.format + ' · ' + (parsed.valid ? 'dígito de control OK' : 'dígito de control FALLIDO') + '<br>' +
-      'Región: ' + parsed.country +
-      ' · Fabricante: ' + parsed.manufacturer +
-      ' · Producto: ' + parsed.productCode;
-  }
-
-  // ------------------------------------------------------ Open Food Facts
-  async function fetchWithProxies(url) {
-    log('OFF: consulta directa…');
-    try {
-      const r = await fetch(url, { headers: { 'User-Agent': 'BarcodeScanner/1.0' }, mode: 'cors' });
-      if (r.ok) { log('OFF: directa OK', 'ok'); return r; }
-      log('OFF: directa HTTP ' + r.status, 'warn');
-    } catch (e) {
-      const m = e && e.message ? e.message : 'CORS/red';
-      log('OFF: directa bloqueada — ' + m, 'warn');
-    }
-    for (const p of CORS_PROXIES) {
-      log('OFF: vía ' + p.name + '…');
-      try {
-        const r = await fetch(p.build(url));
-        if (r.ok) { log('OFF: ' + p.name + ' OK', 'ok'); return r; }
-        log('OFF: ' + p.name + ' HTTP ' + r.status, 'warn');
-      } catch (e) {
-        const m = e && e.message ? e.message : 'fallo';
-        log('OFF: ' + p.name + ' — ' + m, 'warn');
-      }
-    }
-    throw new Error('Todas las consultas han fallado (CORS o red)');
-  }
-
-  function gradeClass(grade) {
-    if (!grade) return '';
-    const g = String(grade).toLowerCase();
-    return 'abcde'.indexOf(g) !== -1 ? 'grade-' + g : '';
-  }
-
-  function renderProduct(p) {
-    if (!p) { clearProduct(); return; }
-    lastProductData = p;
-
-    nameEl.textContent = p.product_name || '(sin nombre)';
-    brandEl.textContent = [p.brands, p.quantity].filter(Boolean).join(' · ');
-    metaEl.innerHTML = '';
-    if (p.nutrition_grades) {
-      const b = document.createElement('span');
-      b.className = 'badge ' + gradeClass(p.nutrition_grades);
-      b.textContent = 'Nutri-Score ' + p.nutrition_grades.toUpperCase();
-      metaEl.appendChild(b);
-    }
-    if (p.nova_group) {
-      const b = document.createElement('span');
-      b.className = 'badge';
-      b.textContent = 'NOVA ' + p.nova_group;
-      metaEl.appendChild(b);
+  // Evalúa un alérgeno concreto contra los datos del producto y devuelve
+  // el nivel de riesgo + la razón por la que se ha llegado a él.
+  function assessAllergen(key, product) {
+    const def = ALLERGEN_DEFS[key];
+    if (!def || !product) {
+      return { level: 'unknown', evidence: 'none', reason: 'Sin datos' };
     }
 
-    if (p.ingredients_text) {
-      ingredientsEl.innerHTML = '<b>Ingredientes</b>' + escapeHtml(p.ingredients_text);
-      ingredientsEl.classList.add('visible');
-    } else {
-      ingredientsEl.textContent = '';
-      ingredientsEl.classList.remove('visible');
+    const allergens  = (product.allergens_tags || []).map(normalizeTag);
+    const traces     = (product.traces_tags    || []).map(normalizeTag);
+    const categories = (product.categories_tags|| []).map(normalizeTag);
+    const ingredients = String(product.ingredients_text || '').toLowerCase();
+
+    // 1) Declarado en allergens_tags → contiene (máxima fiabilidad)
+    const declared = def.tags.some(tag =>
+      allergens.some(a => a.indexOf(tag) !== -1));
+    if (declared) {
+      return { level: 'contains', evidence: 'declared', reason: 'Declarado por el fabricante' };
     }
 
-    productEl.classList.add('visible');
-    renderAnalysis();
-  }
-
-  async function lookupOFF(barcode) {
-    const digits = String(barcode).replace(/\D/g, '');
-    if (digits.length !== 8 && digits.length !== 12 && digits.length !== 13) return;
-    if (digits === lastLookupCode) return;
-    lastLookupCode = digits;
-
-    const id = ++lookupId;
-    clearProduct();
-    setStatus('Analizando producto…');
-    log('Consulta OFF: ' + digits);
-
-    try {
-      const url = OFF_BASE + encodeURIComponent(digits) +
-        '?fields=product_name,brands,quantity,nutrition_grades,nova_group,' +
-        'nutriments,ingredients_text,allergens_tags,additives_tags,categories_tags';
-      const res = await fetchWithProxies(url);
-      if (id !== lookupId) return;
-      if (!res.ok) {
-        log('OFF: HTTP ' + res.status, 'err');
-        setStatus('OFF HTTP ' + res.status);
-        return;
-      }
-      const data = await res.json();
-      if (id !== lookupId) return;
-      if (data.status !== 1 || !data.product) {
-        log('OFF: no encontrado', 'warn');
-        setStatus('No encontrado en Open Food Facts');
-        return;
-      }
-      renderProduct(data.product);
-      log('OFF: encontrado "' + (data.product.product_name || '') + '"', 'ok');
-      setStatus('Producto encontrado');
-    } catch (err) {
-      if (id !== lookupId) return;
-      const m = err && err.message ? err.message : String(err);
-      log('OFF: ' + m, 'err');
-      setStatus('Error al consultar OFF');
+    // 2) Declarado en traces_tags → puede contener trazas (declarado)
+    const inTraces = def.tags.some(tag =>
+      traces.some(a => a.indexOf(tag) !== -1));
+    if (inTraces) {
+      return { level: 'may-contain', evidence: 'declared', reason: 'Trazas declaradas por el fabricante' };
     }
+
+    // 3) Palabras clave en la lista de ingredientes → posible presencia (inferido)
+    const hitKeyword = def.keywords.find(kw => ingredients.indexOf(kw) !== -1);
+    if (hitKeyword) {
+      return { level: 'contains', evidence: 'ingredient-text', reason: 'Ingrediente detectado: «' + hitKeyword + '»' };
+    }
+
+    // 4) Categoría de riesgo → verificar etiqueta (inferido, no declarado)
+    const hitRisk = (def.highRiskCategories || []).find(hr =>
+      categories.some(c => c.indexOf(hr) !== -1));
+    if (hitRisk) {
+      return { level: 'check-label', evidence: 'category-risk', reason: 'Categoría de riesgo: ' + hitRisk };
+    }
+
+    // 5) Categoría habitualmente libre de este alérgeno: esto NO es una
+    // garantía de ausencia, así que el nivel sigue siendo 'unknown'.
+    const hitSafeCategory = (def.lowRiskCategories || []).find(lr =>
+      categories.some(c => c.indexOf(lr) !== -1));
+    if (hitSafeCategory) {
+      return {
+        level: 'unknown', evidence: 'none',
+        reason: 'Sin indicios en los datos disponibles (categoría habitual: ' + hitSafeCategory + ')'
+      };
+    }
+
+    // 6) Sin información suficiente
+    return { level: 'unknown', evidence: 'none', reason: 'Sin declaración ni categoría concluyente' };
   }
 
   // ============================================================
@@ -815,11 +1024,8 @@
   const PROFILE_KEY = 'barcodeScanner.paciente.v1';
 
   const EXCLUSIVE_GROUPS = [
-    {
-      label: 'Diabetes',
-      hint:  'elige una',
-      ids:   ['type1diabetes', 'diabetes', 'prediabetes']
-    }
+    { label: 'Diabetes', hint: 'elige una',
+      ids: ['type1diabetes', 'diabetes', 'prediabetes'] }
   ];
 
   const EXCLUSIVE_IDS = {};
@@ -853,7 +1059,14 @@
     { id: 'soyallergy',    label: 'Alergia a la soja',          icon: '🫛' },
     { id: 'shellfish',     label: 'Alergia al marisco',         icon: '🦐' },
     { id: 'sesame',        label: 'Alergia al sésamo',          icon: '🫘' },
-    { id: 'sulphites',     label: 'Sensibilidad a sulfitos',    icon: '🍷' }
+    { id: 'sulphites',     label: 'Sensibilidad a sulfitos',    icon: '🍷' },
+
+    { id: 'peanutallergy', label: 'Alergia a los cacahuetes',   icon: '🥜' },
+    { id: 'fishallergy',   label: 'Alergia al pescado',         icon: '🐟' },
+    { id: 'molluscallergy',label: 'Alergia a los moluscos',     icon: '🐚' },
+    { id: 'celeryallergy', label: 'Alergia al apio',            icon: '🥬' },
+    { id: 'mustardallergy',label: 'Alergia a la mostaza',       icon: '🌭' },
+    { id: 'lupinallergy',  label: 'Alergia a los altramuces',   icon: '🌱' }
   ];
 
   const NUTRIENT_LABELS = {
@@ -889,14 +1102,21 @@
     osteoporosis:  { nutrients: { calcium: 4 } },
     pregnancy:     { nutrients: { sugars: 2, saturated: 1.5, proteins: 1.5 } },
 
-    celiac:        { allergen: 'gluten',      allergenName: 'gluten' },
-    lactose:       { allergen: 'milk',        allergenName: 'lactosa' },
-    nutallergy:    { allergen: 'nuts',        allergenName: 'frutos secos' },
-    eggallergy:    { allergen: 'egg',         allergenName: 'huevo' },
-    soyallergy:    { allergen: 'soy',         allergenName: 'soja' },
-    shellfish:     { allergen: 'crustacean',  allergenName: 'marisco' },
-    sesame:        { allergen: 'sesame',      allergenName: 'sésamo' },
-    sulphites:     { allergen: 'sulphite',    allergenName: 'sulfitos' }
+    // Alérgenos — se evalúan con assessAllergen()
+    celiac:        { allergen: 'gluten' },
+    lactose:       { allergen: 'milk' },
+    nutallergy:    { allergen: 'nuts' },
+    eggallergy:    { allergen: 'egg' },
+    soyallergy:    { allergen: 'soy' },
+    shellfish:     { allergen: 'crustacean' },
+    sesame:        { allergen: 'sesame' },
+    sulphites:     { allergen: 'sulphite' },
+    peanutallergy: { allergen: 'peanut' },
+    fishallergy:   { allergen: 'fish' },
+    molluscallergy:{ allergen: 'mollusc' },
+    celeryallergy: { allergen: 'celery' },
+    mustardallergy:{ allergen: 'mustard' },
+    lupinallergy:  { allergen: 'lupin' }
   };
 
   const DEFAULT_PROFILE = { conditions: {} };
@@ -1020,20 +1240,10 @@
   updateProfileSummary();
 
   // Si no hay ninguna condición configurada, abrimos el perfil al cargar
-  // para invitar al usuario a configurarlo. Si ya hay datos, se mantiene
-  // colapsado y se cerrará automáticamente al iniciar un escaneo.
-  if (!hasAnyCondition()) {
-    openProfile();
-  }
+  // para invitar al usuario a configurarlo.
+  if (!hasAnyCondition()) openProfile();
 
   // ------------------------- extracción de nutrientes -------------------------
-
-  function pick() {
-    for (let i = 0; i < arguments.length; i++) {
-      if (arguments[i] != null) return arguments[i];
-    }
-    return null;
-  }
 
   function numOr(v) {
     if (v === '' || v == null) return null;
@@ -1041,19 +1251,51 @@
     return isFinite(n) ? n : null;
   }
 
+  // Límites de plausibilidad para detectar posibles errores de la base de
+  // datos colaborativa (p. ej. valores introducidos en la unidad incorrecta).
+  const MAX_PLAUSIBLE_MACRO_G   = 100;   // g por 100 g/100 ml
+  const MAX_PLAUSIBLE_ENERGY_KCAL = 4000; // kcal por 100 g/100 ml
+  // Un producto cuya energía en kcal y en kJ discrepen más de esto se marca
+  // como inconsistente (no se afirma cuál de los dos valores es correcto).
+  const ENERGY_INCONSISTENCY_PCT = 0.2;
+
   function extractNutrients(p) {
     const nu = (p && p.nutriments) || {};
+
+    // --- Sal: distinguimos declarada vs. estimada a partir del sodio ---
     const sodium = numOr(nu.sodium_100g);
-    const salt   = pick(numOr(nu.salt_100g), sodium != null ? sodium * 2.5 : null);
-    const kcal   = numOr(nu['energy-kcal_100g']);
-    const kj     = numOr(nu.energy_100g);
-    const energy = pick(kcal, kj != null ? kj / 4.184 : null);
+    const saltDeclared = numOr(nu.salt_100g);
+    let salt, saltSource;
+    if (saltDeclared != null) {
+      salt = saltDeclared; saltSource = 'declared';
+    } else if (sodium != null) {
+      salt = sodium * 2.5; saltSource = 'estimated';
+    } else {
+      salt = null; saltSource = 'unavailable';
+    }
+
+    // --- Energía: comprobamos consistencia entre kcal y kJ declarados ---
+    const kcal = numOr(nu['energy-kcal_100g']);
+    const kj   = numOr(nu.energy_100g);
+    let energy = null, energySource = 'unavailable', energyInconsistent = false;
+    if (kcal != null && kj != null) {
+      const kcalFromKj = kj / 4.184;
+      const diff = Math.abs(kcalFromKj - kcal);
+      if (diff > Math.max(20, kcal * ENERGY_INCONSISTENCY_PCT)) {
+        energyInconsistent = true;
+      }
+      energy = kcal; energySource = 'kcal';
+    } else if (kcal != null) {
+      energy = kcal; energySource = 'kcal';
+    } else if (kj != null) {
+      energy = kj / 4.184; energySource = 'kj';
+    }
 
     const ironG    = numOr(nu.iron_100g);
     const calciumG = numOr(nu.calcium_100g);
 
-    return {
-      energy:        energy,
+    const result = {
+      energy: energy, energySource: energySource, energyInconsistent: energyInconsistent,
       fat:           numOr(nu.fat_100g),
       saturated:     numOr(nu['saturated-fat_100g']),
       carbohydrates: numOr(nu.carbohydrates_100g),
@@ -1061,9 +1303,21 @@
       fiber:         numOr(nu.fiber_100g),
       proteins:      numOr(nu.proteins_100g),
       salt:          salt,
+      saltSource:    saltSource,
       iron:          ironG    != null ? ironG    * 1000 : null,
       calcium:       calciumG != null ? calciumG * 1000 : null
     };
+
+    // --- Sanity check: valores por 100 g/ml que exceden lo plausible ---
+    const macroKeys = ['fat', 'saturated', 'carbohydrates', 'sugars', 'fiber', 'proteins', 'salt'];
+    let suspicious = false;
+    for (const k of macroKeys) {
+      if (result[k] != null && result[k] > MAX_PLAUSIBLE_MACRO_G) suspicious = true;
+    }
+    if (result.energy != null && result.energy > MAX_PLAUSIBLE_ENERGY_KCAL) suspicious = true;
+    result.suspicious = suspicious;
+
+    return result;
   }
 
   // ------------------------- primitivas de puntuación -------------------------
@@ -1128,12 +1382,13 @@
     return '#ef4444';
   }
 
+  // Frases neutras, no evaluativas ni clínicas: describen el contenido
+  // por 100 g, no si el producto es "bueno" o "malo" ni si debe evitarse.
   function scoreWord(score) {
     if (score == null) return 'Datos insuficientes';
-    if (score >= 7.5) return 'Buena elección';
-    if (score >= 5)   return 'Aceptable con moderación';
-    if (score >= 3)   return 'Limitar consumo';
-    return 'Mejor evitar';
+    if (score >= 7)   return 'Contenido bajo por 100 g';
+    if (score >= 4)   return 'Contenido moderado por 100 g';
+    return 'Contenido alto por 100 g; valore la porción';
   }
 
   function generalScore(n) {
@@ -1150,22 +1405,9 @@
     return wsum ? sum / wsum : null;
   }
 
-  function scoreCondition(condId, n, allergens) {
+  function scoreCondition(condId, n) {
     const rule = CONDITION_RULES[condId];
-    if (!rule) return { score: null, alerts: [], good: [] };
-
-    if (rule.allergen) {
-      const has = (allergens || []).some(a =>
-        String(a).toLowerCase().indexOf(rule.allergen) !== -1);
-      return {
-        score: has ? 1 : 10,
-        alerts: has ? ['Contiene ' + rule.allergenName + ' — evitar'] : [],
-        good: has ? [] : ['Sin ' + rule.allergenName + ' declarado'],
-        isAllergen: true,
-        allergenPresent: has,
-        allergenName: rule.allergenName
-      };
-    }
+    if (!rule || !rule.nutrients) return { score: null, alerts: [], good: [] };
 
     let sum = 0, wsum = 0;
     const alerts = [], good = [];
@@ -1197,53 +1439,125 @@
     }
 
     const n = extractNutrients(lastProductData);
-    const allergens = lastProductData.allergens_tags || [];
     const activeConds = CONDITIONS.map(c => c.id).filter(id => !!profile.conditions[id]);
 
+    // Resultados por condición
     const condResults = activeConds.map(id => {
-      const r = scoreCondition(id, n, allergens) || { score: null, alerts: [], good: [] };
-      return {
-        id: id,
-        score: r.score,
-        alerts: r.alerts || [],
-        good: r.good || [],
-        isAllergen: !!r.isAllergen,
-        allergenPresent: !!r.allergenPresent,
-        allergenName: r.allergenName || ''
-      };
+      const rule = CONDITION_RULES[id];
+      if (rule && rule.allergen) {
+        const a = assessAllergen(rule.allergen, lastProductData);
+        return {
+          id: id,
+          isAllergen: true,
+          allergenKey: rule.allergen,
+          allergenLabel: ALLERGEN_DEFS[rule.allergen].label,
+          allergenLevel: a.level,
+          allergenEvidence: a.evidence,
+          allergenReason: a.reason,
+          score: null
+        };
+      }
+      const r = scoreCondition(id, n) || { score: null, alerts: [], good: [] };
+      return { id, isAllergen: false, score: r.score, alerts: r.alerts, good: r.good };
     });
 
     const parts = [];
 
-    const allergenHits = condResults.filter(r => r.isAllergen && r.allergenPresent);
-    if (allergenHits.length) {
-      const items = allergenHits.map(r => {
+    // ---------- MENSAJE GENERAL SOBRE EL ORIGEN Y LOS LÍMITES DE LOS DATOS ----------
+    // Se muestra siempre que hay un producto cargado, con independencia del
+    // perfil o de si se detecta algún alérgeno.
+    parts.push(
+      '<div class="profile-note" style="margin-top:0;text-align:left">' +
+        'Los datos proceden de Open Food Facts, una base de datos colaborativa. ' +
+        'La información puede estar incompleta, desactualizada o ser incorrecta. ' +
+        'No use esta aplicación como única fuente para decidir si un producto es ' +
+        'seguro para alergias, celiaquía o condiciones médicas.' +
+      '</div>'
+    );
+
+    // ---------- BANNER DE ALÉRGENOS ----------
+    const allergenFindings = condResults.filter(r => r.isAllergen);
+    const dangerFindings = allergenFindings.filter(r =>
+      r.allergenLevel === 'contains' || r.allergenLevel === 'may-contain');
+    const cautionFindings = allergenFindings.filter(r => r.allergenLevel === 'check-label');
+
+    // Texto del hallazgo, evitando afirmar "contiene" cuando el origen no es
+    // una declaración del fabricante.
+    function allergenFindingText(r) {
+      if (r.allergenLevel === 'may-contain') return 'puede contener trazas de ' + r.allergenLabel;
+      if (r.allergenLevel === 'contains' && r.allergenEvidence === 'declared') return 'contiene ' + r.allergenLabel;
+      if (r.allergenLevel === 'contains') return 'posible presencia (texto de ingredientes) de ' + r.allergenLabel;
+      return 'riesgo por categoría de producto — verificar etiqueta de ' + r.allergenLabel;
+    }
+    function allergenEvidenceLabel(evidence) {
+      switch (evidence) {
+        case 'declared':        return 'Declarado por el fabricante';
+        case 'ingredient-text': return 'Detectado en el texto de ingredientes';
+        case 'category-risk':   return 'Inferido por categoría de producto';
+        default:                return 'Sin información suficiente';
+      }
+    }
+
+    if (dangerFindings.length || cautionFindings.length) {
+      const isDanger = dangerFindings.length > 0;
+      const items = [];
+
+      for (const r of dangerFindings.concat(cautionFindings)) {
         const cdef = CONDITIONS.find(x => x.id === r.id) || { label: r.id, icon: '' };
-        return '<div class="aw-item"><span class="ico">' + cdef.icon + '</span>' +
-               cdef.label + ' — contiene ' + r.allergenName + '</div>';
-      }).join('');
+        items.push(
+          '<div class="aw-item"><span class="ico">' + cdef.icon + '</span>' +
+            cdef.label + ' — ' + allergenFindingText(r) +
+            ' <span style="opacity:.7;font-weight:400">(' +
+              escapeHtml(allergenEvidenceLabel(r.allergenEvidence)) + ')</span>' +
+          '</div>'
+        );
+      }
+
+      const title = isDanger ? 'Posible presencia de alérgeno' : 'Verificar etiqueta';
+
       parts.push(
-        '<div class="allergen-warning">' +
-          '<div class="aw-icon">⚠️</div>' +
+        '<div class="allergen-banner ' + (isDanger ? 'danger' : 'caution') + '">' +
+          '<div class="aw-icon">' + (isDanger ? '⚠️' : '🔎') + '</div>' +
           '<div class="aw-body">' +
-            '<div class="aw-title">Alérgeno detectado</div>' +
-            items +
+            '<div class="aw-title">' + title + '</div>' +
+            items.join('') +
+            '<div class="aw-sub">' +
+              (isDanger
+                ? 'Esta información proviene de una base de datos colaborativa y puede estar incompleta.'
+                : 'Verificar etiqueta: la categoría del producto requiere comprobación.') +
+            '</div>' +
           '</div>' +
         '</div>'
       );
     }
 
+    // Advertencia persistente sobre alérgenos: se muestra siempre que haya
+    // al menos una condición de alergia activa en el perfil, incluso si no
+    // se ha detectado ningún alérgeno en este producto.
+    if (allergenFindings.length) {
+      parts.push(
+        '<div class="profile-note warn" style="text-align:left">' +
+          'Esta aplicación no garantiza la ausencia de alérgenos. Para personas con ' +
+          'alergia grave o celiaquía, la única forma segura de decidir si consumir un ' +
+          'producto es leer la etiqueta física del envase y, si es necesario, contactar ' +
+          'con el fabricante.' +
+        '</div>'
+      );
+    }
+
+    // ---------- PUNTUACIÓN GLOBAL ----------
     let overall = null;
     let overallLabel = '';
-    if (activeConds.length) {
-      const valid = condResults.filter(r => r.score != null && !(r.isAllergen && r.allergenPresent));
+    const nutritionalResults = condResults.filter(r => !r.isAllergen);
+    if (activeConds.length && nutritionalResults.length) {
+      const valid = nutritionalResults.filter(r => r.score != null);
       if (valid.length) {
         overall = valid.reduce((s, r) => s + r.score, 0) / valid.length;
-        overallLabel = 'Puntuación para tu perfil';
+        overallLabel = 'Perfil nutricional orientativo';
       }
-    } else {
+    } else if (!activeConds.length) {
       overall = generalScore(n);
-      overallLabel = 'Puntuación general';
+      overallLabel = 'Perfil nutricional orientativo';
     }
 
     if (overall != null) {
@@ -1259,8 +1573,31 @@
       );
     }
 
+    // ---------- BASE Y CALIDAD DE LOS DATOS NUTRICIONALES ----------
+    parts.push(
+      '<div class="profile-note" style="text-align:left">' +
+        'Valores mostrados por 100 g o por 100 ml, según el registro de la base de datos.' +
+      '</div>'
+    );
+    if (n.suspicious) {
+      parts.push(
+        '<div class="profile-note warn" style="text-align:left">' +
+          '⚠ Datos nutricionales posiblemente incorrectos: algún valor por 100 g/100 ml ' +
+          'supera lo fisiológicamente plausible. Los valores siguientes deben tomarse con reserva.' +
+        '</div>'
+      );
+    }
+    if (n.energySource === 'unavailable' || n.energyInconsistent) {
+      parts.push(
+        '<div class="profile-note warn" style="text-align:left">' +
+          'Energía: dato no disponible o inconsistente en la base de datos.' +
+        '</div>'
+      );
+    }
+
+    // ---------- SEMÁFORO ----------
     const tlRows = [];
-    for (const k of ['sugars', 'salt', 'saturated', 'fat']) {
+    for (const k of ['sugars', 'saturated', 'fat']) {
       if (n[k] == null) continue;
       const lvl = tlLevel(k, n[k]);
       const c = lvl === 'green' ? '#22c55e'
@@ -1277,10 +1614,40 @@
         '</div>'
       );
     }
+    // Sal: fila propia para poder indicar si es declarada, estimada o
+    // directamente no disponible en la base de datos.
+    if (n.salt != null) {
+      const lvl = tlLevel('salt', n.salt);
+      const c = lvl === 'green' ? '#22c55e'
+              : lvl === 'amber' ? '#fbbf24'
+              : lvl === 'red'   ? '#ef4444'
+              : '#3a3a40';
+      const pct = Math.min(100, (n.salt / (TL.salt.red * 1.6)) * 100);
+      const srcTxt = n.saltSource === 'declared' ? ' · declarada'
+                   : n.saltSource === 'estimated' ? ' · estimada a partir de sodio' : '';
+      tlRows.push(
+        '<div class="tl-row">' +
+          '<span class="tl-dot" style="background:' + c + '"></span>' +
+          '<span class="tl-name">' + TL.salt.label + '</span>' +
+          '<span class="tl-bar"><span class="tl-fill" style="width:' + pct + '%;background:' + c + '"></span></span>' +
+          '<span class="tl-val">' + fmtNutrient('salt', n.salt) + srcTxt + '</span>' +
+        '</div>'
+      );
+    } else {
+      tlRows.push(
+        '<div class="tl-row">' +
+          '<span class="tl-dot" style="background:#3a3a40"></span>' +
+          '<span class="tl-name">' + TL.salt.label + '</span>' +
+          '<span class="tl-bar"></span>' +
+          '<span class="tl-val">dato no disponible</span>' +
+        '</div>'
+      );
+    }
     if (tlRows.length) {
       parts.push('<div class="tl-title">Semáforo nutricional</div>' + tlRows.join(''));
     }
 
+    // ---------- BENEFICIOSOS ----------
     const posRows = [];
     const posKeys = [
       ['fiber',    8],
@@ -1306,22 +1673,91 @@
       parts.push('<div class="tl-title">Beneficiosos</div>' + posRows.join(''));
     }
 
+    // ---------- TARJETAS POR CONDICIÓN ----------
     if (activeConds.length) {
       const cards = [];
-      for (const r of condResults) {
-        if (r.isAllergen && r.allergenPresent) continue;
 
+      for (const r of condResults) {
         const cdef = CONDITIONS.find(x => x.id === r.id) || { label: r.id, icon: '' };
+
+        if (r.isAllergen) {
+          // No repetimos en tarjeta lo que ya está en el banner de arriba.
+          if (r.allergenLevel === 'contains' || r.allergenLevel === 'may-contain') continue;
+
+          let cls, right, notes;
+          if (r.allergenLevel === 'check-label') {
+            cls = 'warn';
+            right = '<span class="cond-score txt" style="color:#fbbf24">Verificar etiqueta</span>';
+            notes = [
+              '🔎 Verificar etiqueta: la categoría del producto requiere comprobación (' +
+                escapeHtml(r.allergenReason) + ').',
+              'La base de datos no declara ' + r.allergenLabel +
+                ', pero la categoría del producto no garantiza su ausencia.'
+            ];
+          } else {
+            // 'unknown': ni se declara ni se descarta el alérgeno.
+            cls = 'neutral';
+            right = '<span class="cond-score txt" style="color:#9aa0a6">Sin información</span>';
+            notes = [
+              'ℹ Sin información suficiente sobre este alérgeno (' + escapeHtml(r.allergenReason) + ').',
+              'No se puede confirmar ni descartar la presencia de ' + r.allergenLabel +
+                ' con los datos disponibles. Lee siempre la etiqueta.'
+            ];
+          }
+
+          if (r.allergenKey === 'sulphite') {
+            notes.push(
+              'Los sulfitos están sujetos a un umbral de etiquetado regulado en la UE ' +
+              '(expresado como SO₂). La presencia de códigos E220–E228 indica sulfitos, ' +
+              'pero no informa de la concentración exacta.'
+            );
+          }
+
+          cards.push(
+            '<div class="cond-card ' + cls + '">' +
+              '<div class="cond-head">' +
+                '<span class="ico">' + cdef.icon + '</span>' +
+                '<span>' + cdef.label + '</span>' +
+                right +
+              '</div>' +
+              '<div class="cond-note">' + notes.join('<br>') + '</div>' +
+            '</div>'
+          );
+          continue;
+        }
+
+        // Condición nutricional normal
         const s = r.score;
         const hasAlerts = r.alerts && r.alerts.length > 0;
-        const hasGood   = r.good && r.good.length > 0;
+        const hasGood   = r.good   && r.good.length   > 0;
         if (s == null && !hasAlerts && !hasGood) continue;
 
-        const cls = s == null ? '' : s >= 7.5 ? 'good' : s >= 5 ? 'warn' : 'bad';
+        const cls = s == null ? 'neutral' : s >= 7.5 ? 'good' : s >= 5 ? 'warn' : 'bad';
         const notes = [];
         if (hasAlerts) notes.push('⚠ ' + r.alerts.join(' · '));
-        else if (s != null && s >= 7.5) notes.push('✓ Sin problemas importantes');
+        else if (s != null && s >= 7.5) notes.push('✓ Sin nutrientes destacados por encima del umbral orientativo');
         if (hasGood) notes.push('✓ ' + r.good.join(' · '));
+
+        // Disclaimers específicos por condición (orientativos, no clínicos).
+        if (r.id === 'type1diabetes' || r.id === 'diabetes' || r.id === 'prediabetes') {
+          notes.push(
+            'Para la diabetes, el efecto sobre la glucemia depende de la porción, el total ' +
+            'de hidratos de carbono, la fibra, la composición de la comida y el tratamiento ' +
+            'individual. Esta valoración es orientativa y no sustituye el consejo de un profesional.'
+          );
+        } else if (r.id === 'pregnancy') {
+          notes.push(
+            'Esta aplicación no evalúa riesgos específicos del embarazo (por ejemplo, alcohol, ' +
+            'mercurio en pescado, cafeína o seguridad microbiológica). Siga las recomendaciones ' +
+            'de su profesional sanitario y las etiquetas de los productos.'
+          );
+        } else {
+          notes.push(
+            'Esta valoración se basa únicamente en algunos nutrientes disponibles en la base ' +
+            'de datos y no tiene en cuenta su diagnóstico, medicación ni plan dietético individual. ' +
+            'No use esta información como único criterio para decidir si consumir un producto.'
+          );
+        }
 
         cards.push(
           '<div class="cond-card ' + cls + '">' +
@@ -1332,10 +1768,11 @@
                 (s == null ? '—' : s.toFixed(1) + '/10') +
               '</span>' +
             '</div>' +
-            (notes.length ? '<div class="cond-note">' + notes.join('<br>') + '</div>' : '') +
+            '<div class="cond-note">' + notes.join('<br>') + '</div>' +
           '</div>'
         );
       }
+
       if (cards.length) {
         parts.push(
           '<div class="tl-title">Para tus condiciones</div>' +
@@ -1351,7 +1788,10 @@
     }
 
     if (parts.length) {
-      parts.push('<div class="profile-note">Solo orientativo — no es consejo médico.</div>');
+      parts.push(
+        '<div class="profile-note">Solo orientativo — no es consejo médico. Las puntuaciones y ' +
+        'alertas son orientativas y no sustituyen el consejo de un profesional sanitario.</div>'
+      );
       analysisEl.innerHTML = parts.join('');
       analysisEl.classList.add('visible');
     } else {
@@ -1360,8 +1800,126 @@
     }
   }
 
+  // ------------------------------------------------------ Open Food Facts
+  async function fetchWithProxies(url) {
+    log('OFF: consulta directa…');
+    try {
+      const r = await fetch(url, { headers: { 'User-Agent': 'BarcodeScanner/1.0' }, mode: 'cors' });
+      if (r.ok) { log('OFF: directa OK', 'ok'); return r; }
+      log('OFF: directa HTTP ' + r.status, 'warn');
+    } catch (e) {
+      const m = e && e.message ? e.message : 'CORS/red';
+      log('OFF: directa bloqueada — ' + m, 'warn');
+    }
+    for (const p of CORS_PROXIES) {
+      log('OFF: vía ' + p.name + '…');
+      try {
+        const r = await fetch(p.build(url));
+        if (r.ok) { log('OFF: ' + p.name + ' OK', 'ok'); return r; }
+        log('OFF: ' + p.name + ' HTTP ' + r.status, 'warn');
+      } catch (e) {
+        const m = e && e.message ? e.message : 'fallo';
+        log('OFF: ' + p.name + ' — ' + m, 'warn');
+      }
+    }
+    throw new Error('Todas las consultas han fallado (CORS o red)');
+  }
+
+  function gradeClass(grade) {
+    if (!grade) return '';
+    const g = String(grade).toLowerCase();
+    return 'abcde'.indexOf(g) !== -1 ? 'grade-' + g : '';
+  }
+
+  function clearProduct() {
+    productEl.classList.remove('visible');
+    nameEl.textContent = '';
+    brandEl.textContent = '';
+    metaEl.innerHTML = '';
+    ingredientsEl.textContent = '';
+    ingredientsEl.classList.remove('visible');
+    analysisEl.innerHTML = '';
+    analysisEl.classList.remove('visible');
+    lastProductData = null;
+  }
+
+  function renderProduct(p) {
+    if (!p) { clearProduct(); return; }
+    lastProductData = p;
+
+    nameEl.textContent = p.product_name || '(sin nombre)';
+    brandEl.textContent = [p.brands, p.quantity].filter(Boolean).join(' · ');
+    metaEl.innerHTML = '';
+    if (p.nutrition_grades) {
+      const b = document.createElement('span');
+      b.className = 'badge ' + gradeClass(p.nutrition_grades);
+      b.textContent = 'Nutri-Score ' + p.nutrition_grades.toUpperCase();
+      metaEl.appendChild(b);
+    }
+    if (p.nova_group) {
+      const b = document.createElement('span');
+      b.className = 'badge';
+      b.textContent = 'NOVA ' + p.nova_group;
+      metaEl.appendChild(b);
+    }
+
+    if (p.ingredients_text) {
+      ingredientsEl.innerHTML = '<b>Ingredientes</b>' + escapeHtml(p.ingredients_text);
+      ingredientsEl.classList.add('visible');
+    } else {
+      ingredientsEl.textContent = '';
+      ingredientsEl.classList.remove('visible');
+    }
+
+    productEl.classList.add('visible');
+    renderAnalysis();
+
+    // Desplazar el panel al principio para mostrar el análisis desde arriba.
+    panelEl.scrollTop = 0;
+  }
+
+  async function lookupOFF(barcode) {
+    const digits = String(barcode).replace(/\D/g, '');
+    if (digits.length !== 8 && digits.length !== 12 && digits.length !== 13) return;
+    if (digits === lastLookupCode) return;
+    lastLookupCode = digits;
+
+    const id = ++lookupId;
+    clearProduct();
+    setStatus('Analizando producto…');
+    log('Consulta OFF: ' + digits);
+
+    try {
+      const url = OFF_BASE + encodeURIComponent(digits) +
+        '?fields=product_name,brands,quantity,nutrition_grades,nova_group,' +
+        'nutriments,ingredients_text,allergens_tags,traces_tags,categories_tags';
+      const res = await fetchWithProxies(url);
+      if (id !== lookupId) return;
+      if (!res.ok) {
+        log('OFF: HTTP ' + res.status, 'err');
+        setStatus('OFF HTTP ' + res.status);
+        return;
+      }
+      const data = await res.json();
+      if (id !== lookupId) return;
+      if (data.status !== 1 || !data.product) {
+        log('OFF: no encontrado', 'warn');
+        setStatus('No encontrado en Open Food Facts');
+        return;
+      }
+      renderProduct(data.product);
+      log('OFF: encontrado "' + (data.product.product_name || '') + '"', 'ok');
+      setStatus('Producto encontrado');
+    } catch (err) {
+      if (id !== lookupId) return;
+      const m = err && err.message ? err.message : String(err);
+      log('OFF: ' + m, 'err');
+      setStatus('Error al consultar OFF');
+    }
+  }
+
   // ============================================================
-  // ===================  FIN PERFIL + PUNTUACIÓN  ==============
+  // ===================  VISOR Y DECODIFICACIÓN  ===============
   // ============================================================
 
   function getRegion(vw, vh) {
@@ -1410,14 +1968,11 @@
     codeEl.classList.add('hit');
     setTimeout(() => codeEl.classList.remove('hit'), 400);
 
-    const parsed = parseGS1(text);
-    showGS1(parsed);
     if (navigator.vibrate) navigator.vibrate(35);
 
     log('DECODIFICADO: ' + text.substring(0, 40) + (text.length > 40 ? '…' : ''), 'ok');
 
-    if (parsed) lookupOFF(text);
-    else { clearProduct(); lastLookupCode = ''; }
+    lookupOFF(text);
 
     if (running) stop('Código detectado');
   }
@@ -1637,9 +2192,7 @@
   async function start() {
     if (running || !systemReady) return;
 
-    // Al iniciar un escaneo, colapsamos el perfil — así lo pide el flujo:
-    // el usuario ya ha configurado lo que necesitaba y ahora quiere ver el
-    // producto. Si por algún motivo lo abrió manualmente, también se cierra.
+    // Al iniciar un escaneo, colapsamos el perfil.
     if (isProfileOpen()) closeProfile();
 
     setRunning(true);
@@ -1648,7 +2201,6 @@
     fabsEl.hidden = false;
 
     codeEl.textContent = '—';
-    gs1El.textContent = '';
     clearProduct();
     lastText = '';
     lastLookupCode = '';
@@ -1708,6 +2260,11 @@
 
     setStatus('Escaneando…');
     runLoop();
+  }
+
+  function setRunning(isRunning) {
+    running = isRunning;
+    document.body.classList.toggle('running', isRunning);
   }
 
   function stop(reason) {
@@ -1785,9 +2342,6 @@
     if (document.hidden && running) stop('Pausado');
   });
 
-  // ============================================================
-  // =====================  ARRANQUE  ===========================
-  // ============================================================
   preload();
 })();
 </script>
